@@ -42,9 +42,10 @@ export default function PortalLayout({
         id: authUser.id,
         email: authUser.email!,
         name: authUser.user_metadata?.name || 'User',
+        display_name: authUser.user_metadata?.display_name || 'User',
         user_type: userType || 'customer',
         expert_id: authUser.user_metadata?.expert_id,
-        created_at: authUser.created_at, // Add this to fix TypeScript error
+        created_at: authUser.created_at,
       };
 
       setUser(mappedUser);
