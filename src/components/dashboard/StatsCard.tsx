@@ -1,9 +1,9 @@
-import React, { ReactElement } from 'react';
+import React, { ReactElement, SVGProps } from 'react';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
-  icon: ReactElement;
+  icon: ReactElement<SVGProps<SVGSVGElement>>;  // Specify it's an SVG element
   color: 'blue' | 'green' | 'purple' | 'orange';
 }
 
