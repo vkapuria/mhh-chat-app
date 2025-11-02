@@ -10,6 +10,8 @@ interface Order {
   updated_at: string;
   expert_name?: string;
   customer_name?: string;
+  expert_display_name?: string;
+  customer_display_name?: string;
   amount: number;
   expert_fee?: number;
   unread_count: number;

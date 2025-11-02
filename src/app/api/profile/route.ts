@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { validateDisplayName, isDisplayNameUnique } from '@/lib/display-name';
 
 export async function GET(request: NextRequest) {
   try {
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
         id: user.id,
         email: user.email,
         name: user.user_metadata?.name || '',
+        display_name: user.user_metadata?.display_name || '',
         user_type: user.user_metadata?.user_type || 'customer',
         avatar_url: user.user_metadata?.avatar_url || null,
       },
@@ -46,7 +48,26 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email } = body;
+    const { name, email, display_name } = body;
+
+    // If display_name is being updated, validate it
+    if (display_name !== undefined && display_name !== user.user_metadata?.display_name) {
+      // Validate format
+      const validation = validateDisplayName(display_name);
+      if (!validation.valid) {
+        return NextResponse.json({ 
+          error: validation.errors[0] 
+        }, { status: 400 });
+      }
+
+      // Check uniqueness
+      const isUnique = await isDisplayNameUnique(display_name, user.id);
+      if (!isUnique) {
+        return NextResponse.json({ 
+          error: 'This display name is already taken. Please choose another.' 
+        }, { status: 400 });
+      }
+    }
 
     // Update user metadata
     const { error: updateError } = await supabase.auth.updateUser({
@@ -54,6 +75,7 @@ export async function PATCH(request: NextRequest) {
       data: {
         ...user.user_metadata,
         name: name || user.user_metadata?.name,
+        display_name: display_name !== undefined ? display_name : user.user_metadata?.display_name,
       },
     });
 

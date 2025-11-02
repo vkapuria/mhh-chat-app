@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 
 
 // GET: Fetch messages for an order
-// GET: Fetch messages for an order
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -77,7 +76,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('📦 Request body:', JSON.stringify(body, null, 2));
 
-    const { order_id, sender_type, sender_id, sender_name, message_content, send_notification } = body;
+    const { order_id, sender_type, sender_id, sender_name, sender_display_name, message_content, send_notification } = body;
 
     // Get auth token from header
     const authHeader = request.headers.get('authorization');
@@ -123,7 +122,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Validate required fields
-    if (!order_id || !sender_type || !sender_id || !sender_name || !message_content) {
+    if (!order_id || !sender_type || !sender_id || !sender_name || !sender_display_name || !message_content) {
       console.error('❌ Missing required fields');
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -155,6 +154,7 @@ export async function POST(request: NextRequest) {
       sender_type,
       sender_id,
       sender_name,
+      sender_display_name,
       message_content: message_content.trim(),
       notification_sent: send_notification || false,
       is_read: false,

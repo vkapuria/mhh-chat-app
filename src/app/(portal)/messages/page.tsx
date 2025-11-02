@@ -14,8 +14,10 @@ interface Conversation {
   amount: number;
   expert_fee?: number;
   customer_name?: string;
+  customer_display_name?: string;
   customer_email?: string;
   expert_name?: string;
+  expert_display_name?: string;
   expert_email?: string;
   expert_user_id?: string;
   customer_user_id?: string;
@@ -68,8 +70,8 @@ export default function MessagesPage() {
   const selectedConversation = conversations.find(c => c.id === selectedOrderId);
   
   const otherPartyName = userType === 'customer' 
-    ? selectedConversation?.expert_name 
-    : selectedConversation?.customer_name;
+    ? (selectedConversation?.expert_display_name || selectedConversation?.expert_name)
+    : (selectedConversation?.customer_display_name || selectedConversation?.customer_name);
 
   const otherPartyEmail = userType === 'customer'
     ? selectedConversation?.expert_email

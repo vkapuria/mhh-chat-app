@@ -22,8 +22,10 @@ interface OrderCardProps {
     expert_fee?: number;
     deadline?: string;
     customer_name?: string;
+    customer_display_name?: string;
     customer_email?: string;
     expert_name?: string;
+    expert_display_name?: string;
     expert_id?: string;
     created_at: string;
     updated_at: string;
@@ -93,14 +95,14 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
             <div className="flex items-center text-sm text-slate-600 gap-3">
               <UserCircleIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <span className="font-medium">Expert:</span>
-              <span>{order.expert_name}</span>
+              <span>{order.expert_display_name || order.expert_name}</span>
             </div>
           )}
           {userType === 'expert' && order.customer_name && (
              <div className="flex items-center text-sm text-slate-600 gap-3">
               <UserCircleIcon className="w-5 h-5 text-slate-400 flex-shrink-0" />
               <span className="font-medium">Customer:</span>
-              <span>{order.customer_name}</span>
+              <span>{order.customer_display_name || order.customer_name}</span>
             </div>
           )}
           <div className="flex items-center text-sm text-slate-600 gap-3">

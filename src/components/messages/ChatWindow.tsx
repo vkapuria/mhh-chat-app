@@ -16,6 +16,7 @@ interface Message {
   sender_type: 'customer' | 'expert';
   sender_id: string;
   sender_name: string;
+  sender_display_name: string;
   message_content: string;
   is_read: boolean;
   notification_sent: boolean;
@@ -250,6 +251,7 @@ useEffect(() => {
         sender_type: currentUserType,
         sender_id: currentUserId,
         sender_name: user.user_metadata?.name || 'User',
+        sender_display_name: user.user_metadata?.display_name || 'User',
       });
   
       const response = await fetch('/api/messages', {
@@ -260,9 +262,10 @@ useEffect(() => {
         },
         body: JSON.stringify({
           order_id: orderId,
-          sender_type: currentUserType,     // Make sure this is included!
-          sender_id: currentUserId,         // Make sure this is included!
+          sender_type: currentUserType,
+          sender_id: currentUserId,
           sender_name: user.user_metadata?.name || 'User',
+          sender_display_name: user.user_metadata?.display_name || 'User',
           message_content: newMessage.trim(),
           send_notification: notify,
         }),
@@ -286,7 +289,7 @@ useEffect(() => {
               orderTitle,
               recipientEmail: otherPartyEmail,
               recipientName: otherPartyName,
-              senderName: user.user_metadata?.name,
+              senderName: user.user_metadata?.display_name || user.user_metadata?.name,
               messageContent: newMessage.trim(),
             }),
           });
@@ -375,7 +378,7 @@ useEffect(() => {
                 <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                   {!isOwn && (
                     <span className="text-xs text-slate-500 mb-1 px-1">
-                      {message.sender_name}
+                      {message.sender_display_name}
                     </span>
                   )}
                   <div

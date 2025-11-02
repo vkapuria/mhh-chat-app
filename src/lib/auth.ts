@@ -19,6 +19,7 @@ export async function signIn(email: string, password: string): Promise<AuthRespo
       email: data.user.email!,
       user_type: data.user.user_metadata.user_type as UserType,
       name: data.user.user_metadata.name || '',
+      display_name: data.user.user_metadata.display_name || data.user.user_metadata.name || '', // ← NEW: Use display_name if exists, fallback to name
       created_at: data.user.created_at || '',
       customer_id: data.user.user_metadata.customer_id,
       expert_id: data.user.user_metadata.expert_id,
@@ -60,6 +61,7 @@ export async function getCurrentUser(): Promise<User | null> {
       email: user.email!,
       user_type: user.user_metadata.user_type as UserType,
       name: user.user_metadata.name || '',
+      display_name: user.user_metadata.display_name || user.user_metadata.name || '', // ← NEW: Use display_name if exists, fallback to name
       created_at: user.created_at || '',
       customer_id: user.user_metadata.customer_id,
       expert_id: user.user_metadata.expert_id,

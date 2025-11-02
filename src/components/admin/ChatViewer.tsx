@@ -12,6 +12,7 @@ interface ChatMessage {
   sender_type: 'customer' | 'expert' | 'system';
   sender_id: string;
   sender_name: string;
+  sender_display_name: string;
   message_content: string;
   is_read: boolean;
   notification_sent: boolean;
@@ -179,6 +180,9 @@ export function ChatViewer({ orderId }: ChatViewerProps) {
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-xs font-medium text-slate-700">
                       {message.sender_name}
+                    </span>
+                    <span className="text-xs text-blue-600">
+                      (shows as: {message.sender_display_name})
                     </span>
                     <span className="text-xs text-slate-500">
                       {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}

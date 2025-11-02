@@ -11,6 +11,7 @@ interface Profile {
   id: string;
   email: string;
   name: string;
+  display_name: string;
   user_type: string;
   avatar_url: string | null;
 }
@@ -98,6 +99,7 @@ export default function ProfilePage() {
             <PersonalInfoForm
               initialName={profile.name}
               initialEmail={profile.email}
+              initialDisplayName={profile.display_name}
               onSaveSuccess={fetchProfile}
             />
           </div>

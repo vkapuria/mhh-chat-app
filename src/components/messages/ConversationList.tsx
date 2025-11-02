@@ -11,6 +11,8 @@ interface Conversation {
   expert_fee?: number;
   customer_name?: string;
   expert_name?: string;
+  customer_display_name?: string;
+  expert_display_name?: string;
   lastMessage?: {
     sender_id: string;
     message_content: string;

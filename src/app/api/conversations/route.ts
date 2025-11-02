@@ -143,11 +143,13 @@ export async function GET(request: NextRequest) {
           amount: order.amount,
           expert_fee: order.expert_fee,
           customer_name: order.customer_name,
+          customer_display_name: order.customer_display_name,
           customer_email: order.customer_email,
           expert_name: order.expert_name,
+          expert_display_name: order.expert_display_name,
           expert_email: expertEmail,
-          expert_user_id: expertUserId,     // Add this
-          customer_user_id: customerUserId, // Add this
+          expert_user_id: expertUserId,
+          customer_user_id: customerUserId,
           expert_id: order.expert_id,
           status: order.status,
           updated_at: order.updated_at,

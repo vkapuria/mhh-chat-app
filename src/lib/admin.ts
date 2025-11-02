@@ -1,6 +1,7 @@
 import { supabaseServer } from './supabase-server';
 import { generateSecurePassword } from './password-generator';
 import { sendEmail, generateWelcomeEmail } from './email';
+import { generateDisplayName } from './display-name';
 
 export interface CreateUserParams {
   email: string;
@@ -47,10 +48,11 @@ export async function createUserAccount(
 
     // Generate secure password
     const password = generateSecurePassword(12);
-
+        
     // Prepare user metadata
     const userMetadata: Record<string, string> = {
       name,
+      display_name: generateDisplayName(name), // ← NEW: Auto-generate display name
       user_type: userType,
     };
 

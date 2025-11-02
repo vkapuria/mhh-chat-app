@@ -18,8 +18,10 @@ interface Chat {
   taskCode: string;
   title: string;
   customerName: string;
+  customerDisplayName: string;
   customerEmail: string;
   expertName: string;
+  expertDisplayName: string;
   status: string;
   messageCount: number;
   unreadCount: number;
@@ -229,12 +231,16 @@ export function ChatMonitor() {
                       <p className="text-xs text-slate-500">Customer</p>
                       <p className="text-sm font-medium text-slate-900">{chat.customerName}</p>
                       <p className="text-xs text-slate-500">{chat.customerEmail}</p>
+                      <p className="text-xs text-blue-600 mt-0.5">Shows as: {chat.customerDisplayName}</p>
                     </div>
                     <div>
                       <p className="text-xs text-slate-500">Expert</p>
                       <p className="text-sm font-medium text-slate-900">
                         {chat.expertName || 'Not assigned'}
                       </p>
+                      {chat.expertDisplayName && (
+                        <p className="text-xs text-blue-600 mt-0.5">Shows as: {chat.expertDisplayName}</p>
+                      )}
                     </div>
                   </div>
 
