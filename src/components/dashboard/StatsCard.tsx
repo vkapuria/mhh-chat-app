@@ -1,30 +1,35 @@
-import { ReactNode } from 'react';
+import React, { ReactElement } from 'react';
 
 interface StatsCardProps {
   title: string;
   value: string | number;
-  icon: ReactNode;
+  icon: ReactElement;
   color: 'blue' | 'green' | 'purple' | 'orange';
 }
 
 export function StatsCard({ title, value, icon, color }: StatsCardProps) {
-  const colorClasses = {
-    blue: 'bg-blue-100 text-blue-600',
-    green: 'bg-green-100 text-green-600',
-    purple: 'bg-purple-100 text-purple-600',
-    orange: 'bg-orange-100 text-orange-600',
+  const bgClasses = {
+    blue: 'from-blue-500 to-indigo-600',
+    green: 'from-green-500 to-emerald-600',
+    purple: 'from-purple-500 to-pink-600',
+    orange: 'from-orange-500 to-red-600',
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-slate-600">{title}</p>
-          <p className="text-3xl font-bold text-slate-900 mt-2">{value}</p>
-        </div>
-        <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${colorClasses[color]}`}>
-          {icon}
-        </div>
+    <div
+      className={`relative overflow-hidden rounded-xl bg-gradient-to-br p-6 text-white shadow-lg ${bgClasses[color]}`}
+    >
+      {/* Watermark Icon */}
+      <div className="absolute -right-4 -top-4 text-white/20">
+        {React.cloneElement(icon, {
+          className: 'w-24 h-24',
+        })}
+      </div>
+
+      {/* Content */}
+      <div className="relative z-10">
+        <p className="text-sm font-medium text-white/80">{title}</p>
+        <p className="mt-2 text-4xl font-bold">{value}</p>
       </div>
     </div>
   );

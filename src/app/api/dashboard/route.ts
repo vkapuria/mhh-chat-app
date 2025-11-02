@@ -36,14 +36,30 @@ export async function GET(request: NextRequest) {
 
     // Calculate stats
     const totalOrders = orders?.length || 0;
-    const activeOrders = orders?.filter(o => o.status === 'Assigned' || o.status === 'In Progress').length || 0;
+    const activeOrders = orders?.filter(o => o.status === 'Assigned' || o.status === 'In Progress' || o.status === 'Pending' || o.status === 'Revision').length || 0;
     const completedOrders = orders?.filter(o => o.status === 'Completed').length || 0;
     const pendingOrders = orders?.filter(o => o.status === 'Pending').length || 0;
 
-    // Get recent orders (last 5)
-    const recentOrders = orders
-      ?.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-      .slice(0, 5) || [];
+    // Get recent orders (last 5) with their unread counts
+const sortedOrders = orders
+  ?.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+  .slice(0, 5) || [];
+
+const recentOrders = await Promise.all(
+  sortedOrders.map(async (order) => {
+    const { count } = await supabase
+      .from('chat_messages')
+      .select('id', { count: 'exact', head: true })
+      .eq('order_id', order.id)
+      .eq('is_read', false)
+      .neq('sender_id', user.id);
+    
+    return {
+      ...order,
+      unread_count: count || 0,
+    };
+  })
+);
 
     // Get unread message count
     const { data: unreadMessages } = await supabase

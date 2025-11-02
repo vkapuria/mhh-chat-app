@@ -5,11 +5,12 @@ import { supabase } from '@/lib/supabase';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { 
-  ShoppingBagIcon, 
-  CheckCircleIcon, 
+import {
+  ShoppingBagIcon,
+  CheckCircleIcon,
   ClockIcon,
-  ChatBubbleLeftRightIcon 
+  ChatBubbleLeftRightIcon,
+  PencilIcon // Add this
 } from '@heroicons/react/24/outline';
 
 interface DashboardData {
@@ -98,7 +99,7 @@ export default function DashboardPage() {
           <StatsCard
             title="Active"
             value={data?.stats.activeOrders || 0}
-            icon={<ClockIcon className="w-6 h-6" />}
+            icon={<PencilIcon className="w-6 h-6" />}
             color="orange"
           />
           <StatsCard

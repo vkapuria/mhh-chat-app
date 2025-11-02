@@ -1,61 +1,150 @@
+'use client';
+
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+
+// Define the Order type based on our previous discussions
 interface Order {
   id: string;
   title: string;
   amount: number;
   expert_fee?: number;
   updated_at: string;
-  completed_at?: string;  // Add this
+  completed_at?: string;
 }
-  
-  interface EarningsChartProps {
-    orders: Order[];
-  }
-  
-  export function EarningsChart({ orders }: EarningsChartProps) {
-    // Group by month
-    const monthlyData: { [key: string]: number } = {};
-  
-    orders.forEach((order) => {
-  // Use completed_at for consistency
-  const dateStr = order.completed_at || order.updated_at;
-  const date = new Date(dateStr);
-  const monthYear = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-  monthlyData[monthYear] = (monthlyData[monthYear] || 0) + (order.expert_fee || order.amount);
-});
-  
-    // Get last 6 months
-    const sortedMonths = Object.entries(monthlyData)
-      .sort(([a], [b]) => new Date(a).getTime() - new Date(b).getTime())
-      .slice(-6);
-  
-    const maxAmount = Math.max(...sortedMonths.map(([, amount]) => amount), 1);
-  
+
+interface EarningsChartProps {
+  orders: Order[];
+}
+
+// Custom Tooltip component for styling
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-        <h3 className="text-lg font-semibold text-slate-900 mb-6">Monthly Earnings</h3>
-        
-        {sortedMonths.length === 0 ? (
-          <div className="text-center py-12 text-slate-500">
-            No earnings data yet
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {sortedMonths.map(([month, amount]) => (
-              <div key={month} className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{month}</span>
-                  <span className="font-bold text-slate-900">₹{amount.toLocaleString()}</span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 h-full rounded-full transition-all duration-500"
-                    style={{ width: `${(amount / maxAmount) * 100}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      <div className="rounded-lg border bg-background p-2 shadow-sm">
+        <div className="grid grid-cols-1 gap-1">
+          <span className="text-sm font-bold text-foreground">
+            {label}
+          </span>
+          <span className="text-sm text-green-600">
+            Earnings: <strong>₹{payload[0].value.toLocaleString()}</strong>
+          </span>
+        </div>
       </div>
     );
   }
+  return null;
+};
+
+export function EarningsChart({ orders }: EarningsChartProps) {
+  // Group by month
+  const monthlyData: { [key: string]: number } = {};
+
+  orders.forEach((order) => {
+    // Use completed_at or updated_at
+    const dateStr = order.completed_at || order.updated_at;
+    const date = new Date(dateStr);
+    
+    // Create a 'YYYY-MM' key for correct chronological sorting
+    const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    
+    // Sum expert_fee (use amount as fallback)
+    monthlyData[monthKey] = (monthlyData[monthKey] || 0) + (order.expert_fee || order.amount);
+  });
+
+  // Sort keys, take the last 6, and map to chart data format
+  const chartData = Object.keys(monthlyData)
+    .sort() // Sorts chronologically (e.g., '2024-12' comes after '2024-11')
+    .slice(-6) // Get last 6 months
+    .map(monthKey => {
+      const [year, month] = monthKey.split('-');
+      const date = new Date(Number(year), Number(month) - 1);
+      return {
+        name: date.toLocaleDateString('en-US', { month: 'short' }), // "Nov"
+        earnings: monthlyData[monthKey],
+      };
+    });
+
+  return (
+    // Set h-full to match the height of sibling EarningsCard components
+    <Card className="h-full">
+      <CardHeader>
+        <CardTitle>Monthly Earnings (Last 6 Months)</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {chartData.length === 0 ? (
+          <div className="flex h-[180px] items-center justify-center">
+            <p className="text-slate-500">No earnings data yet</p>
+          </div>
+        ) : (
+          // Set a fixed height for the chart container
+          <div className="h-[180px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={chartData}
+                margin={{
+                  top: 5,
+                  right: 10,
+                  left: -20, // Adjust to pull Y-axis labels closer
+                  bottom: 5,
+                }}
+              >
+                {/* Gradient for the bars */}
+                <defs>
+                  <linearGradient id="colorEarnings" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                
+                {/* X-Axis (Month Names) */}
+                <XAxis
+                  dataKey="name"
+                  stroke="#888888"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                
+                {/* Y-Axis (Earnings) */}
+                <YAxis
+                  stroke="#888888"
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => `₹${value / 1000}k`} // Format as ₹1k, ₹2k
+                />
+                
+                {/* Tooltip on Hover */}
+                <Tooltip 
+                  content={<CustomTooltip />} 
+                  cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }} // Light slate fill on hover
+                />
+                
+                {/* The Bars */}
+                <Bar
+                  dataKey="earnings"
+                  fill="url(#colorEarnings)"
+                  radius={[4, 4, 0, 0]} // Rounded tops
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+

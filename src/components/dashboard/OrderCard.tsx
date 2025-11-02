@@ -9,7 +9,6 @@ import {
   ChatBubbleLeftIcon, 
   ClockIcon,
   CheckCircleIcon,
-  XCircleIcon 
 } from '@heroicons/react/24/outline';
 
 interface OrderCardProps {
@@ -19,19 +18,22 @@ interface OrderCardProps {
 
 export function OrderCard({ order, userType }: OrderCardProps) {
   const router = useRouter();
+  // Chat is enabled for all statuses except 'Pending'
   const isChatEnabled = order.status !== 'Pending';
 
   const handleChatClick = () => {
     if (isChatEnabled) {
-      router.push(`/chat/${order.id}`);
+      // Navigate to the main messages page and select this order
+      router.push(`/messages?orderId=${order.id}`);
     }
   };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       Pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      Assigned: 'bg-blue-100 text-blue-700 border-blue-200',
-      Revision: 'bg-purple-100 text-purple-700 border-purple-200',
+      Assigned: 'bg-blue-100 text-blue-700 border-blue-200', // Blue for In Progress
+      'In Progress': 'bg-blue-100 text-blue-700 border-blue-200', // Explicitly add In Progress
+      Revision: 'bg-red-100 text-red-700 border-red-200', // Red for Under Revision
       Completed: 'bg-green-100 text-green-700 border-green-200',
       Refunded: 'bg-red-100 text-red-700 border-red-200',
     };
@@ -42,6 +44,17 @@ export function OrderCard({ order, userType }: OrderCardProps) {
     if (status === 'Pending') return <ClockIcon className="w-3 h-3" />;
     if (status === 'Completed') return <CheckCircleIcon className="w-3 h-3" />;
     return null;
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case 'Assigned':
+        return 'In Progress';
+      case 'Revision':
+        return 'Under Revision';
+      default:
+        return order.status;
+    }
   };
 
   return (
@@ -57,7 +70,9 @@ export function OrderCard({ order, userType }: OrderCardProps) {
           <h4 className="font-medium text-sm line-clamp-1">{order.title}</h4>
           <Badge variant="outline" className={`text-xs ${getStatusColor(order.status)}`}>
             {getStatusIcon(order.status)}
-            <span className="ml-1 capitalize">{order.status}</span>
+            <span className="ml-1 capitalize">
+              {getStatusText(order.status)}
+            </span>
           </Badge>
         </div>
 
@@ -78,8 +93,8 @@ export function OrderCard({ order, userType }: OrderCardProps) {
           </p>
         )}
 
-{/* Chat Button and Unread Count */}
-<div className="flex flex-col gap-2 pt-2">
+        {/* Chat Button and Unread Count */}
+        <div className="flex flex-col gap-2 pt-2">
           <Button
             size="sm"
             variant={isChatEnabled ? "default" : "secondary"}

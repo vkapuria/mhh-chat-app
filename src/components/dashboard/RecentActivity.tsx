@@ -1,4 +1,7 @@
+import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
+import { Button } from '@/components/ui/button';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 interface Order {
   id: string;
@@ -7,6 +10,9 @@ interface Order {
   updated_at: string;
   expert_name?: string;
   customer_name?: string;
+  amount: number;
+  expert_fee?: number;
+  unread_count: number;
 }
 
 interface RecentActivityProps {
@@ -15,24 +21,6 @@ interface RecentActivityProps {
 }
 
 export function RecentActivity({ orders, userType }: RecentActivityProps) {
-  const getActivityText = (order: Order) => {
-    const isCustomer = userType === 'customer';
-    
-    if (order.status === 'Assigned' && isCustomer) {
-      return `Order assigned to ${order.expert_name || 'expert'}`;
-    }
-    if (order.status === 'Completed') {
-      return `Order completed`;
-    }
-    if (order.status === 'In Progress') {
-      return `Order in progress`;
-    }
-    if (order.status === 'Pending' && !isCustomer) {
-      return `New order from ${order.customer_name || 'customer'}`;
-    }
-    return `Order ${order.status.toLowerCase()}`;
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Completed':
@@ -40,6 +28,8 @@ export function RecentActivity({ orders, userType }: RecentActivityProps) {
       case 'In Progress':
       case 'Assigned':
         return 'bg-blue-100 text-blue-700';
+      case 'Revision':
+        return 'bg-red-100 text-red-700';
       case 'Pending':
         return 'bg-yellow-100 text-yellow-700';
       default:
@@ -56,26 +46,62 @@ export function RecentActivity({ orders, userType }: RecentActivityProps) {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-      <h3 className="text-lg font-semibold text-slate-900 mb-4">Recent Activity</h3>
-      <div className="space-y-4">
-        {orders.map((order) => (
-          <div key={order.id} className="flex items-start gap-3">
-            <div className="w-2 h-2 rounded-full bg-blue-600 mt-2"></div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-slate-900">{order.title}</p>
-              <p className="text-sm text-slate-600">{getActivityText(order)}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(order.status)}`}>
-                  {order.status}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {formatDistanceToNow(new Date(order.updated_at), { addSuffix: true })}
-                </span>
+    <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+      <div className="px-6 py-4 border-b border-slate-200">
+        <h3 className="text-lg font-semibold text-slate-900">Recent Activity</h3>
+      </div>
+      
+      <div className="divide-y divide-slate-200">
+        {orders.map((order) => {
+          const isCustomer = userType === 'customer';
+          const displayAmount = isCustomer
+            ? `$${order.amount}`
+            : `₹${order.expert_fee || order.amount}`;
+          
+          const amountColor = isCustomer ? 'text-slate-900' : 'text-green-600';
+          const canChat = order.status === 'Assigned' || order.status === 'In Progress' || order.status === 'Revision';
+
+          return (
+            <div key={order.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between">
+              {/* Left Side: Title and Status */}
+              <div className="flex-1 mb-4 sm:mb-0">
+                <p className="text-sm font-semibold text-slate-900 line-clamp-1">{order.title}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${getStatusColor(order.status)}`}>
+                    {order.status === 'Assigned' ? 'In Progress' : order.status === 'Revision' ? 'Under Revision' : order.status}
+                  </span>
+                  <span className="text-xs text-slate-500">
+                    {formatDistanceToNow(new Date(order.updated_at), { addSuffix: true })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Right Side: Amount and Chat */}
+              <div className="flex items-center gap-4 flex-shrink-0">
+                <div className={`text-lg font-bold ${amountColor}`}>
+                  {displayAmount}
+                </div>
+                <Link href={`/messages/${order.id}`} passHref>
+                  <Button
+                    variant={canChat ? 'outline' : 'secondary'}
+                    size="default" // <-- Changed from "sm"
+                    disabled={!canChat}
+                    className="relative"
+                  >
+                    <ChatBubbleLeftRightIcon className="w-5 h-5 mr-2" /> {/* <-- Changed from w-4 h-4 */}
+                    {isCustomer ? 'Chat with Expert' : 'Chat with Customer'} {/* <-- Changed text */}
+                    {order.unread_count > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-600"></span>
+                      </span>
+                    )}
+                  </Button>
+                </Link>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

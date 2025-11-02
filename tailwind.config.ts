@@ -9,6 +9,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      // ADDED THIS BLOCK to set the default fonts
+      fontFamily: {
+        sans: ["var(--font-geist-sans)"],
+        mono: ["var(--font-geist-mono)"],
+      },
+      // END OF ADDED BLOCK
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
@@ -61,3 +67,4 @@ const config: Config = {
   plugins: [require("tailwindcss-animate")],
 };
 export default config;
+
