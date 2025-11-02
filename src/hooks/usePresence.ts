@@ -35,7 +35,7 @@ export function usePresence(orderId: string | null, user: User | null) {
           isOnline: true,
           lastSeen: new Date().toISOString(),
           otherUserOnline: !!otherUser,
-          otherUserLastSeen: otherUser?.online_at || null,
+          otherUserLastSeen: (otherUser as any)?.online_at || null,
         });
       }
     );
