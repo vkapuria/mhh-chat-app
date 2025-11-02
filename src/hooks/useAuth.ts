@@ -43,7 +43,7 @@ export function useAuth() {
     
     if (result.user) {
       setUser(result.user);
-      router.push('/chat');
+      // Don't redirect here - let the login page handle it
     }
     
     return result;

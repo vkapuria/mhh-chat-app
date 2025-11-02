@@ -18,7 +18,7 @@ export function ChatWindow({ orderId, user }: ChatWindowProps) {
   const presence = usePresence(orderId, user);
 
   const handleSendMessage = async (content: string, sendNotification: boolean) => {
-    await sendMessage({
+    return await sendMessage({  // ← Fixed: Added "return"
       order_id: orderId,
       message_content: content,
       send_notification: sendNotification,

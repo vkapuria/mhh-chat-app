@@ -4,6 +4,7 @@ import { useRef, useEffect } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
+import { CheckCircleIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/outline';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -82,8 +83,21 @@ export function MessageList({ messages, currentUserId }: MessageListProps) {
                 </p>
               </div>
 
-              {!message.is_read && !isCurrentUser && (
-                <span className="text-xs text-slate-500 mt-1">Unread</span>
+              {/* Read receipts - only show for messages YOU sent */}
+              {isCurrentUser && (
+                <div className="flex items-center gap-1 mt-1">
+                  {message.is_read ? (
+                    <>
+                      <CheckCircleIcon className="w-3 h-3 text-blue-600" />
+                      <span className="text-xs text-blue-600">Read</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChatBubbleLeftIcon className="w-3 h-3 text-slate-400" />
+                      <span className="text-xs text-slate-400">Sent</span>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>

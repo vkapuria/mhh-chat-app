@@ -3,10 +3,6 @@ import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
-    const search = searchParams.get('search');
-
     // Get user from auth header
     const authHeader = request.headers.get('authorization');
     if (!authHeader) {
@@ -32,37 +28,45 @@ export async function GET(request: NextRequest) {
       query = query.eq('expert_id', expertId);
     }
 
-    // Apply status filter
-    if (status && status !== 'all') {
-      if (status === 'active') {
-        query = query.in('status', ['Assigned', 'In Progress']);
-      } else if (status === 'pending') {
-        query = query.eq('status', 'Pending');
-      } else if (status === 'completed') {
-        query = query.eq('status', 'Completed');
-      }
-    }
-
-    // Apply search filter
-    if (search) {
-      query = query.or(`id.ilike.%${search}%,title.ilike.%${search}%`);
-    }
-
-    // Order by updated_at desc
-    query = query.order('updated_at', { ascending: false });
-
     const { data: orders, error } = await query;
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Calculate stats
+    const totalOrders = orders?.length || 0;
+    const activeOrders = orders?.filter(o => o.status === 'Assigned' || o.status === 'In Progress').length || 0;
+    const completedOrders = orders?.filter(o => o.status === 'Completed').length || 0;
+    const pendingOrders = orders?.filter(o => o.status === 'Pending').length || 0;
+
+    // Get recent orders (last 5)
+    const recentOrders = orders
+      ?.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+      .slice(0, 5) || [];
+
+    // Get unread message count
+    const { data: unreadMessages } = await supabase
+      .from('chat_messages')
+      .select('order_id')
+      .eq('is_read', false)
+      .neq('sender_id', user.id);
+
+    const unreadCount = unreadMessages?.length || 0;
+
     return NextResponse.json({
       success: true,
-      orders: orders || [],
+      stats: {
+        totalOrders,
+        activeOrders,
+        completedOrders,
+        pendingOrders,
+        unreadMessages: unreadCount,
+      },
+      recentOrders,
     });
   } catch (error) {
-    console.error('Orders API error:', error);
+    console.error('Dashboard API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

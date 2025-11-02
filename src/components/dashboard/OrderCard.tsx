@@ -78,8 +78,8 @@ export function OrderCard({ order, userType }: OrderCardProps) {
           </p>
         )}
 
-        {/* Chat Button */}
-        <div className="flex items-center justify-between pt-2">
+{/* Chat Button and Unread Count */}
+<div className="flex flex-col gap-2 pt-2">
           <Button
             size="sm"
             variant={isChatEnabled ? "default" : "secondary"}
@@ -92,11 +92,14 @@ export function OrderCard({ order, userType }: OrderCardProps) {
             {isChatEnabled ? 'Chat' : 'Pending'}
           </Button>
 
-          {/* Unread Badge */}
+          {/* Unread Messages */}
           {order.unread_count > 0 && (
-            <Badge variant="destructive" className="text-xs">
-              {order.unread_count} new
-            </Badge>
+            <div className="flex items-center gap-1.5 text-xs text-red-600">
+              <ChatBubbleLeftIcon className="w-3.5 h-3.5" />
+              <span className="font-medium">
+                {order.unread_count} unread {order.unread_count === 1 ? 'message' : 'messages'}
+              </span>
+            </div>
           )}
         </div>
       </div>

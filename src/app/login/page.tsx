@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -19,17 +20,33 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔵 Form submitted');
     setError('');
     setLoading(true);
-
+  
+    console.log('🔵 Calling login with:', email);
     const result = await login(email, password);
-
+    console.log('🔵 Login result:', result);
+  
     if (result.error) {
+      console.log('🔴 Login error:', result.error);
       setError(result.error);
       setLoading(false);
     } else {
-      // Redirect handled by useAuth hook
-      router.push('/chat');
+      console.log('🟢 Login successful, getting user metadata');
+      // Get user metadata from Supabase directly
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log('🟢 User data:', user);
+      const userType = user?.user_metadata?.user_type;
+      console.log('🟢 User type:', userType);
+      
+      if (userType === 'admin') {
+        console.log('🟢 Redirecting to /admin');
+        window.location.href = '/admin';  // ← Use window.location instead
+      } else {
+        console.log('🟢 Redirecting to /');
+        window.location.href = '/dashboard';  // ← Use window.location instead
+      }
     }
   };
 
