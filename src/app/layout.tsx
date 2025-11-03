@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google"; // Changed from Geist
 import "./globals.css";
+import { Toaster } from 'sonner';
 
 // Changed from Geist to Inter
 const inter = Inter({
@@ -24,6 +25,7 @@ export default function RootLayout({
         className={inter.className}
       >
         {children}
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

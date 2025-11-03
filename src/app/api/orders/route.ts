@@ -57,9 +57,50 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    // Add rating data to each completed order
+    const ordersWithRatings = await Promise.all(
+      (orders || []).map(async (order) => {
+        let rating = null;
+        
+        if (order.status === 'Completed') {
+          const { data: feedback } = await supabase
+            .from('order_feedback')
+            .select('expertise_knowledge, timeliness_delivery, platform_support, overall_experience, submitted_at')
+            .eq('order_id', order.id)
+            .single();
+
+          if (feedback) {
+            const avgRating = (
+              feedback.expertise_knowledge +
+              feedback.timeliness_delivery +
+              feedback.platform_support +
+              feedback.overall_experience
+            ) / 4;
+            rating = {
+              average: Math.round(avgRating * 10) / 10,
+              count: 1,
+              submitted_at: feedback.submitted_at,
+            };
+          } else {
+            const completedAt = order.completed_at ? new Date(order.completed_at) : new Date(order.updated_at);
+            const daysSinceCompletion = (new Date().getTime() - completedAt.getTime()) / (1000 * 60 * 60 * 24);
+            rating = {
+              status: 'pending',
+              days_since_completion: Math.floor(daysSinceCompletion),
+            };
+          }
+        }
+
+        return {
+          ...order,
+          rating,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
-      orders: orders || [],
+      orders: ordersWithRatings,
     });
   } catch (error) {
     console.error('Orders API error:', error);

@@ -62,6 +62,44 @@ const thisMonthEarnings = completedOrders?.filter(
     // Average earnings per order
     const avgEarningsPerOrder = completedCount > 0 ? Math.round(totalEarnings / completedCount) : 0;
 
+    // Add rating data to completed orders
+    const ordersWithRatings = await Promise.all(
+      (completedOrders || []).map(async (order) => {
+        const { data: feedback } = await supabase
+          .from('order_feedback')
+          .select('expertise_knowledge, timeliness_delivery, platform_support, overall_experience, submitted_at')
+          .eq('order_id', order.id)
+          .single();
+
+        let rating = null;
+        if (feedback) {
+          const avgRating = (
+            feedback.expertise_knowledge +
+            feedback.timeliness_delivery +
+            feedback.platform_support +
+            feedback.overall_experience
+          ) / 4;
+          rating = {
+            average: Math.round(avgRating * 10) / 10,
+            count: 1,
+            submitted_at: feedback.submitted_at,
+          };
+        } else {
+          const completedAt = order.completed_at ? new Date(order.completed_at) : new Date(order.updated_at);
+          const daysSinceCompletion = (new Date().getTime() - completedAt.getTime()) / (1000 * 60 * 60 * 24);
+          rating = {
+            status: 'pending',
+            days_since_completion: Math.floor(daysSinceCompletion),
+          };
+        }
+
+        return {
+          ...order,
+          rating,
+        };
+      })
+    );
+
     return NextResponse.json({
       success: true,
       stats: {
@@ -72,7 +110,7 @@ const thisMonthEarnings = completedOrders?.filter(
         completionRate,
         avgEarningsPerOrder,
       },
-      orders: completedOrders || [],
+      orders: ordersWithRatings,
     });
   } catch (error) {
     console.error('Earnings API error:', error);
