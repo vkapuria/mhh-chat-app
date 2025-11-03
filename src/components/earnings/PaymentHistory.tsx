@@ -10,6 +10,7 @@ interface Order {
   customer_name?: string;
   updated_at: string;
   created_at: string;
+  completed_at?: string;  // <-- ADD THIS LINE
   rating?: {
     average?: number;
     count?: number;
