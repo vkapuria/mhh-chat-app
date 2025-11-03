@@ -7,6 +7,8 @@ import { User } from '@/types/user';
 import { PortalSidebar } from '@/components/portal/PortalSidebar';
 import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PresenceProvider } from '@/components/providers/PresenceProvider';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Bars3Icon } from '@heroicons/react/24/outline';
 
 export default function PortalLayout({
   children,
@@ -15,6 +17,7 @@ export default function PortalLayout({
 }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -75,13 +78,42 @@ export default function PortalLayout({
   return (
     <PresenceProvider>
       <div className="flex h-screen bg-slate-50">
-        {/* Sidebar */}
-        <PortalSidebar user={user} />
+        {/* Desktop Sidebar - Hidden on Mobile */}
+        <div className="hidden md:block">
+          <PortalSidebar user={user} />
+        </div>
+
+        {/* Mobile Sidebar - Sheet/Drawer */}
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="p-0 w-80">
+            <PortalSidebar user={user} onNavigate={() => setMobileMenuOpen(false)} />
+          </SheetContent>
+        </Sheet>
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          <PortalHeader user={user} />
-          
+          {/* Mobile Header with Hamburger */}
+          <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              aria-label="Open menu"
+            >
+              <Bars3Icon className="w-6 h-6 text-slate-700" />
+            </button>
+            <div>
+              <h1 className="font-bold text-lg">MyHomeworkHelp</h1>
+              <p className="text-xs text-slate-500">
+                {user.user_type === 'customer' ? 'Customer Portal' : 'Expert Portal'}
+              </p>
+            </div>
+          </div>
+
+          {/* Desktop Header */}
+          <div className="hidden md:block">
+            <PortalHeader user={user} />
+          </div>
+
           <main className="flex-1 overflow-y-auto">
             {children}
           </main>

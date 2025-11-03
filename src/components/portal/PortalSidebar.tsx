@@ -13,11 +13,11 @@ import { User } from '@/types/user';
 
 interface PortalSidebarProps {
   user: User;
+  onNavigate?: () => void;
 }
 
-export function PortalSidebar({ user }: PortalSidebarProps) {
+export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const pathname = usePathname();
-
   const isCustomer = user.user_type === 'customer';
   const isExpert = user.user_type === 'expert';
 
@@ -98,13 +98,14 @@ export function PortalSidebar({ user }: PortalSidebarProps) {
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
-          
+
           return (
             <Link
               key={item.name}
               href={item.href}
+              onClick={onNavigate}
               className={`
-                flex items-center gap-3 px-4 py-3 rounded-lg transition-all
+                flex items-center gap-3 px-4 py-3 min-h-[44px] rounded-lg transition-all active:scale-95
                 ${
                   active
                     ? 'bg-blue-50 text-blue-700 font-medium'

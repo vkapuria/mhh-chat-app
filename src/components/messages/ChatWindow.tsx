@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
 import { 
@@ -49,9 +50,15 @@ export function ChatWindow({
   const [loading, setLoading] = useState(true);
   const [isOtherPartyOnline, setIsOtherPartyOnline] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [isOtherPartyTyping, setIsOtherPartyTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const otherPartyTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Debug: Log state changes
+    useEffect(() => {
+      console.log('🎨 isOtherPartyTyping changed to:', isOtherPartyTyping);
+    }, [isOtherPartyTyping]);
   // Add this new useEffect right after the state declarations (around line 50)
 useEffect(() => {
   // Reset presence state when conversation changes
@@ -165,6 +172,50 @@ useEffect(() => {
       console.log('⚠️ No otherPartyId provided, keeping presence as false');
     }
 
+    // Set up typing indicator channel
+    const typingChannel = supabase.channel(`typing-${orderId}`, {
+      config: {
+        broadcast: { self: false }, // Don't receive our own typing events
+      },
+    });
+
+    typingChannel
+      .on('broadcast', { event: 'typing' }, (payload) => {
+        console.log('⌨️ Typing event received:', payload);
+        console.log('🔍 Debug - otherPartyId:', otherPartyId);
+        console.log('🔍 Debug - payload.user_id:', payload.payload.user_id);
+        console.log('🔍 Debug - Match?:', payload.payload.user_id === otherPartyId);
+        
+        // Only show typing if it's from the other party
+        if (payload.payload.user_id === otherPartyId && payload.payload.is_typing) {
+          console.log('✅ Setting isOtherPartyTyping to TRUE');
+          setIsOtherPartyTyping(true);
+          
+          // Clear existing timeout
+          if (otherPartyTypingTimeoutRef.current) {
+            clearTimeout(otherPartyTypingTimeoutRef.current);
+          }
+          
+          // Auto-hide after 3 seconds
+          otherPartyTypingTimeoutRef.current = setTimeout(() => {
+            setIsOtherPartyTyping(false);
+          }, 5000);
+        } else if (payload.payload.user_id === otherPartyId && !payload.payload.is_typing) {
+          // Immediately hide when user stops typing
+          setIsOtherPartyTyping(false);
+          if (otherPartyTypingTimeoutRef.current) {
+            clearTimeout(otherPartyTypingTimeoutRef.current);
+          }
+        }
+      })
+      .subscribe((status) => {
+        console.log('📡 Typing channel subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          typingChannelRef.current = typingChannel;
+          console.log('✅ Typing channel ready for broadcasting');
+        }
+      });
+
     // Cleanup function - CRITICAL!
     return () => {
       console.log('🧹 Cleaning up channels for order:', orderId);
@@ -172,8 +223,16 @@ useEffect(() => {
       if (presenceChannel) {
         supabase.removeChannel(presenceChannel);
       }
+      supabase.removeChannel(typingChannel);
+      
+      // Clear timeouts
+      if (otherPartyTypingTimeoutRef.current) {
+        clearTimeout(otherPartyTypingTimeoutRef.current);
+      }
+      
       // Reset state on cleanup too
       setIsOtherPartyOnline(false);
+      setIsOtherPartyTyping(false);
     };
   }, [orderId, currentUserId, otherPartyId]);  // Re-run when ANY of these change
 
@@ -305,6 +364,48 @@ useEffect(() => {
     }
   }
 
+  // Store channel reference so we can broadcast to it
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  function broadcastTyping(isTyping: boolean) {
+    if (!typingChannelRef.current) {
+      console.warn('⚠️ Typing channel not ready');
+      return;
+    }
+    
+    console.log('📤 Broadcasting typing:', { user_id: currentUserId, is_typing: isTyping });
+    
+    typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: {
+        user_id: currentUserId,
+        is_typing: isTyping,
+      },
+    });
+  }
+
+  function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    setNewMessage(e.target.value);
+    
+    // Broadcast typing when user types
+    if (e.target.value.trim() && !isTyping) {
+      setIsTyping(true);
+      broadcastTyping(true);
+    }
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Stop typing indicator after 1 second of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      broadcastTyping(false);
+    }, 5000);
+  }
+
   function handleKeyPress(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -347,8 +448,8 @@ useEffect(() => {
     </div>
   )}
 
-  {/* Title Bar */}
-  <div className="px-6 py-4 bg-slate-50">
+  {/* Title Bar - Hidden on mobile (shown in mobile header instead) */}
+  <div className="hidden md:block px-6 py-4 bg-slate-50 border-b border-slate-200">
     <div className="flex items-center justify-between">
       <div>
         <h2 className="text-lg font-semibold text-slate-900">{orderTitle}</h2>
@@ -392,26 +493,46 @@ useEffect(() => {
                       {message.message_content}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 mt-1 px-1">
-                    <span className="text-xs text-slate-400">
-                      {formatDistanceToNow(new Date(message.created_at), {
-                        addSuffix: true,
-                      })}
-                    </span>
+                  {/* Status line: timestamp and read status */}
+                  <div className="flex items-center gap-2 mt-1 px-1 text-xs">
                     {isOwn && (
-                      <span className="text-xs">
+                      <div className="flex items-center gap-1">
                         {message.is_read ? (
-                          <span className="flex items-center gap-0.5">
-                            <CheckIcon className="w-3 h-3 text-blue-500" />
-                            <CheckIcon className="w-3 h-3 text-blue-500 -ml-1.5" />
-                          </span>
+                          <>
+                            <div className="flex items-center -space-x-1">
+                              <img src="/icons/read.svg" alt="" className="w-3 h-3" />
+                              <img src="/icons/read.svg" alt="" className="w-3 h-3" />
+                            </div>
+                            <span className="text-blue-600 font-medium">Read</span>
+                          </>
                         ) : (
-                          <CheckIcon className="w-3 h-3 text-slate-400" />
+                          <>
+                            <img src="/icons/sent.svg" alt="" className="w-3 h-3" />
+                            <span className="text-slate-500">Sent</span>
+                          </>
                         )}
-                      </span>
+                      </div>
                     )}
+                    
                     {isOwn && message.notification_sent && (
-                      <BellIcon className="w-3 h-3 text-slate-400" />
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <div className="flex items-center gap-1">
+                          <img src="/icons/gmail.svg" alt="" className="w-3 h-3" />
+                          <span className="text-slate-500">Emailed</span>
+                        </div>
+                      </>
+                    )}
+                    
+                    {(isOwn || true) && (
+                      <>
+                        <span className="text-slate-300">•</span>
+                        <span className="text-slate-400">
+                          {formatDistanceToNow(new Date(message.created_at), {
+                            addSuffix: true,
+                          })}
+                        </span>
+                      </>
                     )}
                   </div>
                 </div>
@@ -422,12 +543,50 @@ useEffect(() => {
         <div ref={messagesEndRef} />
       </div>
 
+       {/* Typing Indicator - Above Input */}
+      <AnimatePresence>
+        {isOtherPartyTyping && (
+          <div className="px-6 py-0 flex justify-center">
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="w-full md:w-4/5 bg-slate-900 rounded-t-xl px-4 py-2 overflow-hidden"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <div className="flex gap-1">
+                  <motion.span
+                    className="w-2 h-2 bg-white rounded-full"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+                  />
+                  <motion.span
+                    className="w-2 h-2 bg-white rounded-full"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+                  />
+                  <motion.span
+                    className="w-2 h-2 bg-white rounded-full"
+                    animate={{ y: [0, -4, 0] }}
+                    transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+                  />
+                </div>
+                <span className="text-sm text-white font-medium">
+                  {otherPartyName} is typing...
+                </span>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Input */}
       <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
         <div className="flex gap-3">
           <textarea
             value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
+            onChange={handleInputChange}
             onKeyPress={handleKeyPress}
             placeholder="Type your message..."
             className="flex-1 px-4 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -438,18 +597,18 @@ useEffect(() => {
             <button
               onClick={() => sendMessage(false)}
               disabled={sending || !newMessage.trim()}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+              className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
             >
-              <PaperAirplaneIcon className="w-4 h-4" />
-              Send
+              <PaperAirplaneIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Send</span>
             </button>
             <button
               onClick={() => sendMessage(true)}
               disabled={sending || !newMessage.trim()}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm font-medium"
+              className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
             >
-              <BellIcon className="w-4 h-4" />
-              Notify
+              <BellIcon className="w-5 h-5" />
+              <span className="hidden sm:inline">Notify</span>
             </button>
           </div>
         </div>

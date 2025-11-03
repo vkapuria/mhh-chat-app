@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import PullToRefresh from 'react-pull-to-refresh';
 
 interface Conversation {
   id: string;
@@ -41,8 +43,10 @@ export default function MessagesPage() {
     fetchConversations();
   }, []);
 
-  async function fetchConversations() {
+  async function fetchConversations(isRefresh: boolean = false) {
     try {
+      if (!isRefresh) setLoading(true);
+      
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
 
@@ -67,6 +71,10 @@ export default function MessagesPage() {
     }
   }
 
+  const handleRefresh = () => {
+    return fetchConversations(true);
+  };
+
   const selectedConversation = conversations.find(c => c.id === selectedOrderId);
   
   const otherPartyName = userType === 'customer' 
@@ -81,6 +89,10 @@ export default function MessagesPage() {
     ? selectedConversation?.expert_user_id
     : selectedConversation?.customer_user_id;
 
+  const handleBackToList = () => {
+    setSelectedOrderId(null);
+  };
+
   if (loading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -92,51 +104,83 @@ export default function MessagesPage() {
     );
   }
 
-  // Debug: Log the IDs
-console.log('🔍 Debug Info:', {
-  userId,
-  userType,
-  selectedConversation: selectedConversation?.title,
-  otherPartyId,
-  expert_user_id: selectedConversation?.expert_user_id,
-  customer_user_id: selectedConversation?.customer_user_id,
-});
-
   return (
     <div className="h-full flex">
-      {/* Left: Conversation List */}
-      <div className="w-80 border-r border-slate-200 bg-white flex flex-col">
+      {/* Conversation List - Hidden on mobile when chat is selected */}
+      <div className={`
+        w-full md:w-80 border-r border-slate-200 bg-white flex flex-col
+        ${selectedOrderId ? 'hidden md:flex' : 'flex'}
+      `}>
         <div className="p-4 border-b border-slate-200">
           <h2 className="text-lg font-semibold text-slate-900">Conversations</h2>
-          <p className="text-sm text-slate-500">{conversations.length} active</p>
+          <p className="text-sm text-slate-500">
+            {conversations.filter(c => c.lastMessage).length} active, {conversations.filter(c => !c.lastMessage).length} pending
+          </p>
+          {!selectedOrderId && (
+            <p className="text-xs text-slate-400 mt-2">
+              👇 Tap any order to start chatting
+            </p>
+          )}
         </div>
-        <ConversationList
+        <PullToRefresh
+          onRefresh={handleRefresh}
+          className="flex-1 overflow-hidden"
+        >
+          <ConversationList
           conversations={conversations}
           userType={userType}
           activeOrderId={selectedOrderId || undefined}
           onSelectConversation={setSelectedOrderId}
           currentUserId={userId}
-        />
-      </div>
-
-      {/* Right: Chat Window */}
-      <div className="flex-1 bg-slate-50">
-        {selectedOrderId && selectedConversation ? (
-          <ChatWindow
-            orderId={selectedOrderId}
-            orderTitle={selectedConversation.title}
-            currentUserType={userType}
-            currentUserId={userId}
-            otherPartyName={otherPartyName || 'Unknown'}
-            otherPartyEmail={otherPartyEmail}
-            otherPartyId={otherPartyId}
           />
+          </PullToRefresh>
+        </div>
+
+      {/* Chat Window - Full screen on mobile, right panel on desktop */}
+      <div className={`
+        flex-1 bg-slate-50
+        ${selectedOrderId ? 'flex' : 'hidden md:flex'}
+      `}>
+        {selectedOrderId && selectedConversation ? (
+          <div className="flex flex-col w-full h-full">
+            {/* Mobile Back Button */}
+            <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
+              <button
+                onClick={handleBackToList}
+                className="p-3 min-w-[44px] min-h-[44px] hover:bg-slate-100 active:bg-slate-200 rounded-lg transition-colors flex items-center justify-center"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeftIcon className="w-6 h-6 text-slate-700" />
+              </button>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-semibold text-slate-900 truncate">
+                  {selectedConversation.title}
+                </h3>
+                <p className="text-xs text-slate-500 truncate">
+                  {otherPartyName}
+                </p>
+              </div>
+            </div>
+
+            {/* Chat Window */}
+            <div className="flex-1 overflow-hidden">
+              <ChatWindow
+                orderId={selectedOrderId}
+                orderTitle={selectedConversation.title}
+                currentUserType={userType}
+                currentUserId={userId}
+                otherPartyName={otherPartyName || 'Unknown'}
+                otherPartyEmail={otherPartyEmail}
+                otherPartyId={otherPartyId}
+              />
+            </div>
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-slate-500 text-lg">Select a conversation to start chatting</p>
-              <p className="text-sm text-slate-400 mt-2">
-                Choose a conversation from the list on the left
+            <div className="text-center px-4">
+              <p className="text-slate-400 text-sm mb-2">No conversation selected</p>
+              <p className="text-slate-600 text-lg">
+                👇 Choose an order below to start chatting
               </p>
             </div>
           </div>

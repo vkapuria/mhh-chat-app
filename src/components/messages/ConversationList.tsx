@@ -55,9 +55,11 @@ export function ConversationList({
   if (conversations.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center text-slate-500">
-          <p>No conversations yet</p>
-          <p className="text-sm mt-2">Orders with assigned experts will appear here</p>
+        <div className="text-center">
+          <p className="text-slate-400 text-sm mb-2">No conversations yet</p>
+          <p className="text-slate-600">
+            Orders with assigned {userType === 'customer' ? 'experts' : 'customers'} will appear here
+          </p>
         </div>
       </div>
     );
@@ -65,9 +67,18 @@ export function ConversationList({
 
   function renderConversationItem(conversation: Conversation, isActive: boolean) {
     const isSelected = activeOrderId === conversation.id;
-    const otherPartyName = userType === 'customer' 
-      ? conversation.expert_name 
-      : conversation.customer_name;
+    
+    // Use display name for privacy
+    const otherPartyDisplayName = userType === 'customer' 
+      ? (conversation.expert_display_name || conversation.expert_name)
+      : (conversation.customer_display_name || conversation.customer_name);
+
+    // Contextual messaging based on chat status
+    const otherPartyLabel = userType === 'customer' ? 'Expert' : 'Customer';
+    const hasMessages = conversation.lastMessage !== null;
+    const chatPrompt = hasMessages 
+      ? `Chatting with ${otherPartyLabel}: ${otherPartyDisplayName}`
+      : `Chat with ${otherPartyLabel}: ${otherPartyDisplayName}`;
 
     // Display amount based on user type
     const displayAmount = userType === 'customer' 
@@ -80,7 +91,7 @@ export function ConversationList({
       <button
         key={conversation.id}
         onClick={() => onSelectConversation(conversation.id)}
-        className={`w-full text-left px-4 py-3 border-b border-slate-200 hover:bg-slate-50 transition-colors relative ${
+        className={`w-full text-left px-4 py-4 min-h-[80px] border-b border-slate-200 hover:bg-slate-50 active:bg-slate-100 transition-colors relative ${
           isSelected ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''
         }`}
       >
@@ -99,9 +110,18 @@ export function ConversationList({
           📋 {conversation.task_code} • 📅 {format(new Date(conversation.order_date), 'MMM d, yyyy')}
         </div>
 
-        {/* Third row: Other party name */}
-        <div className="text-sm text-slate-600 mb-1">
-          {otherPartyName}
+        {/* Third row: Contextual chat prompt with chip */}
+        <div className="text-sm text-slate-600 mb-1 flex items-center gap-1.5 flex-wrap">
+          <span>{hasMessages ? 'Chatting with' : 'Chat with'} {otherPartyLabel}:</span>
+          <span className={`
+            px-2 py-0.5 text-xs font-medium rounded
+            ${userType === 'customer' 
+              ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+              : 'bg-green-100 text-green-700 border border-green-200'
+            }
+          `}>
+            {otherPartyDisplayName}
+          </span>
         </div>
 
         {/* Fourth row: Status */}

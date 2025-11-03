@@ -11,9 +11,8 @@ const config: Config = {
     extend: {
       // ADDED THIS BLOCK to set the default fonts
       fontFamily: {
-        sans: ["var(--font-geist-sans)"],
-        mono: ["var(--font-geist-mono)"],
-      },
+                    sans: ["var(--font-inter)", "sans-serif"],
+                  },
       // END OF ADDED BLOCK
       colors: {
         background: "hsl(var(--background))",

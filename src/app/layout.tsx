@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} antialiased`} // Use the new variable
+        className={inter.className}
       >
         {children}
       </body>
