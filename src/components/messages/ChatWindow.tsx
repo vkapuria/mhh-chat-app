@@ -75,6 +75,28 @@ useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
+  // Mark messages as read when window becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        // Mark any unread messages as read when user returns to window
+        const unreadMessages = messages.filter(
+          (msg) => !msg.is_read && msg.sender_id !== currentUserId
+        );
+        
+        unreadMessages.forEach((msg) => {
+          markAsRead(msg.id);
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [messages, currentUserId]);
+
   // Set up real-time subscriptions
   useEffect(() => {
     // IMMEDIATELY reset presence state when conversation changes
@@ -256,13 +278,15 @@ useEffect(() => {
       if (data.success) {
         setMessages(data.messages || []);
         
-        // Mark unread messages as read
-        const unreadMessages = data.messages.filter(
-          (msg: Message) => !msg.is_read && msg.sender_id !== currentUserId
-        );
-        
-        for (const msg of unreadMessages) {
-          await markAsRead(msg.id);
+        // Mark unread messages as read ONLY if window is visible/focused
+        if (document.visibilityState === 'visible') {
+          const unreadMessages = data.messages.filter(
+            (msg: Message) => !msg.is_read && msg.sender_id !== currentUserId
+          );
+          
+          for (const msg of unreadMessages) {
+            await markAsRead(msg.id);
+          }
         }
       }
     } catch (error) {
@@ -497,20 +521,57 @@ useEffect(() => {
                   <div className="flex items-center gap-2 mt-1 px-1 text-xs">
                     {isOwn && (
                       <div className="flex items-center gap-1">
-                        {message.is_read ? (
-                          <>
-                            <div className="flex items-center -space-x-1">
-                              <img src="/icons/read.svg" alt="" className="w-3 h-3" />
-                              <img src="/icons/read.svg" alt="" className="w-3 h-3" />
-                            </div>
-                            <span className="text-blue-600 font-medium">Read</span>
-                          </>
-                        ) : (
-                          <>
-                            <img src="/icons/sent.svg" alt="" className="w-3 h-3" />
-                            <span className="text-slate-500">Sent</span>
-                          </>
-                        )}
+                        <AnimatePresence mode="wait">
+                          {message.is_read ? (
+                            <motion.div
+                              key="read"
+                              initial={{ y: 10, opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ y: -10, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="flex items-center gap-1"
+                            >
+                              <div className="flex items-center -space-x-1">
+                                <motion.img
+                                  src="/icons/read.svg"
+                                  alt=""
+                                  className="w-3 h-3"
+                                  initial={{ y: 10, opacity: 0 }}
+                                  animate={{ y: 0, opacity: 1 }}
+                                  transition={{ duration: 0.3, delay: 0 }}
+                                />
+                                <motion.img
+                                  src="/icons/read.svg"
+                                  alt=""
+                                  className="w-3 h-3"
+                                  initial={{ y: 10, opacity: 0 }}
+                                  animate={{ y: 0, opacity: 1 }}
+                                  transition={{ duration: 0.3, delay: 0.15 }}
+                                />
+                              </div>
+                              <motion.span
+                                className="text-blue-600 font-medium"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                transition={{ duration: 0.3, delay: 0.3 }}
+                              >
+                                Read
+                              </motion.span>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="sent"
+                              initial={{ y: 10, opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ y: -10, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="flex items-center gap-1"
+                            >
+                              <img src="/icons/sent.svg" alt="" className="w-3 h-3" />
+                              <span className="text-slate-500">Sent</span>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     )}
                     
