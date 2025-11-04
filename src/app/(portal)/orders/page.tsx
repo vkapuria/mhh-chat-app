@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import useSWR from 'swr';
 import { supabase } from '@/lib/supabase';
+import { fetcher } from '@/lib/fetcher';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { OrderFilters } from '@/components/orders/OrderFilters';
 import { OrderSearch } from '@/components/orders/OrderSearch';
@@ -19,51 +21,56 @@ interface Order {
   expert_id?: string;
   created_at: string;
   updated_at: string;
+  rating?: any;
+}
+
+interface OrdersResponse {
+  success: boolean;
+  orders: Order[];
 }
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<'customer' | 'expert'>('customer');
+  const [userId, setUserId] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
 
+  // ✨ SWR for orders with USER-SPECIFIC caching
+  const { data, error, isLoading } = useSWR<OrdersResponse>(
+    userId ? ['/api/orders', userId] : null,
+    ([url]) => fetcher(url),
+    {
+      refreshInterval: 30000,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 5000,
+    }
+  );
+
+  const orders = data?.orders || [];
+
+  // Get user type AND userId on mount
   useEffect(() => {
-    fetchOrders();
-    fetchUnreadCounts();
+    async function getUserInfo() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const type = session.user.user_metadata?.user_type || 'customer';
+        setUserType(type);
+        setUserId(session.user.id);
+      }
+    }
+    getUserInfo();
   }, []);
 
+  // Fetch unread counts (separate from orders API)
   useEffect(() => {
-    filterOrders();
-  }, [orders, activeFilter, searchQuery]);
-
-  async function fetchOrders() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const userTypeFromSession = session.user.user_metadata?.user_type || 'customer';
-      setUserType(userTypeFromSession);
-
-      const response = await fetch('/api/orders', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        setOrders(result.orders);
-        setFilteredOrders(result.orders);
-      }
-    } catch (error) {
-      console.error('Failed to fetch orders:', error);
-    } finally {
-      setLoading(false);
-    }
-  }
+    fetchUnreadCounts();
+    
+    // Refresh unread counts every 15 seconds
+    const interval = setInterval(fetchUnreadCounts, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   async function fetchUnreadCounts() {
     try {
@@ -88,7 +95,8 @@ export default function OrdersPage() {
     }
   }
 
-  function filterOrders() {
+  // ✨ Memoized filtering (only re-compute when dependencies change)
+  const filteredOrders = useMemo(() => {
     let filtered = [...orders];
 
     // Apply status filter
@@ -108,17 +116,19 @@ export default function OrdersPage() {
       );
     }
 
-    setFilteredOrders(filtered);
-  }
+    return filtered;
+  }, [orders, activeFilter, searchQuery]);
 
-  const counts = {
+  // ✨ Memoized counts
+  const counts = useMemo(() => ({
     all: orders.length,
     pending: orders.filter(o => o.status === 'Pending').length,
     active: orders.filter(o => o.status === 'Assigned' || o.status === 'In Progress').length,
     completed: orders.filter(o => o.status === 'Completed').length,
-  };
+  }), [orders]);
 
-  if (loading) {
+  // Loading state
+  if (isLoading || !data) {
     return (
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
@@ -130,6 +140,20 @@ export default function OrdersPage() {
                 <div key={i} className="h-64 bg-slate-200 rounded"></div>
               ))}
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">Failed to load orders</p>
+            <p className="text-red-600 text-sm mt-1">{error.message}</p>
           </div>
         </div>
       </div>

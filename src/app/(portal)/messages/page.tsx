@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import useSWR from 'swr';
 import { supabase } from '@/lib/supabase';
+import { fetcher } from '@/lib/fetcher';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
@@ -31,48 +33,56 @@ interface Conversation {
   unreadCount: number;
 }
 
+interface ConversationsResponse {
+  success: boolean;
+  conversations: Conversation[];
+}
+
 export default function MessagesPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState<'customer' | 'expert'>('customer');
   const [userId, setUserId] = useState('');
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
 
+  // ✨ SWR for conversations with USER-SPECIFIC caching
+  const { data, error, isLoading, mutate } = useSWR<ConversationsResponse>(
+    userId ? ['/api/conversations', userId] : null, // Include userId in cache key
+    ([url]) => fetcher(url), // Extract URL from array
+    {
+      refreshInterval: 15000, // Refresh every 15 seconds (more frequent for real-time feel)
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 3000, // Faster deduping for messages
+    }
+  );
+
+  const conversations = data?.conversations || [];
+
+  // Get user type and userId on mount
   useEffect(() => {
-    fetchConversations();
+    async function getUserInfo() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        const type = session.user.user_metadata?.user_type || 'customer';
+        setUserType(type);
+        setUserId(session.user.id);
+      }
+    }
+    getUserInfo();
   }, []);
 
-  async function fetchConversations(isRefresh: boolean = false) {
-    try {
-      if (!isRefresh) setLoading(true);
-      
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const userTypeFromSession = session.user.user_metadata?.user_type || 'customer';
-      setUserType(userTypeFromSession);
-      setUserId(session.user.id);
-
-      const response = await fetch('/api/conversations', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        setConversations(result.conversations);
-      }
-    } catch (error) {
-      console.error('Failed to fetch conversations:', error);
-    } finally {
-      setLoading(false);
+  // Check for orderId in URL params (from redirect)
+  useEffect(() => {
+    const orderIdFromUrl = searchParams.get('orderId');
+    if (orderIdFromUrl) {
+      setSelectedOrderId(orderIdFromUrl);
     }
-  }
+  }, [searchParams]);
 
-  const handleRefresh = () => {
-    return fetchConversations(true);
+  // ✨ Pull to refresh handler
+  const handleRefresh = async () => {
+    await mutate(); // Manually trigger SWR revalidation
   };
 
   const selectedConversation = conversations.find(c => c.id === selectedOrderId);
@@ -91,14 +101,35 @@ export default function MessagesPage() {
 
   const handleBackToList = () => {
     setSelectedOrderId(null);
+    // Update URL without orderId
+    router.push('/messages');
   };
 
-  if (loading) {
+  // Loading state
+  if (isLoading || !data) {
     return (
       <div className="h-full flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-slate-600">Loading conversations...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-full flex items-center justify-center p-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 max-w-md">
+          <p className="text-red-800 font-medium">Failed to load conversations</p>
+          <p className="text-red-600 text-sm mt-1">{error.message}</p>
+          <button
+            onClick={() => mutate()}
+            className="mt-3 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -127,14 +158,14 @@ export default function MessagesPage() {
           className="flex-1 overflow-hidden"
         >
           <ConversationList
-          conversations={conversations}
-          userType={userType}
-          activeOrderId={selectedOrderId || undefined}
-          onSelectConversation={setSelectedOrderId}
-          currentUserId={userId}
+            conversations={conversations}
+            userType={userType}
+            activeOrderId={selectedOrderId || undefined}
+            onSelectConversation={setSelectedOrderId}
+            currentUserId={userId}
           />
-          </PullToRefresh>
-        </div>
+        </PullToRefresh>
+      </div>
 
       {/* Chat Window - Full screen on mobile, right panel on desktop */}
       <div className={`

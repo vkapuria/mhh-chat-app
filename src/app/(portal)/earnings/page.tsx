@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useSWR from 'swr';
 import { supabase } from '@/lib/supabase';
+import { fetcher } from '@/lib/fetcher';
 import { EarningsCard } from '@/components/earnings/EarningsCard';
 import { EarningsChart } from '@/components/earnings/EarningsChart';
 import { PaymentHistory } from '@/components/earnings/PaymentHistory';
@@ -12,6 +14,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 interface EarningsData {
+  success: boolean;
   stats: {
     totalEarnings: number;
     thisMonthEarnings: number;
@@ -24,62 +27,85 @@ interface EarningsData {
 }
 
 export default function EarningsPage() {
-  const [data, setData] = useState<EarningsData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [userType, setUserType] = useState('');
+  const [isExpert, setIsExpert] = useState<boolean | null>(null);
   const router = useRouter();
 
+  // Check access control
   useEffect(() => {
-    checkAccess();
-  }, []);
+    async function checkAccess() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
 
-  async function checkAccess() {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login');
-        return;
-      }
+        const type = user.user_metadata?.user_type;
+        setUserType(type);
 
-      const type = user.user_metadata?.user_type;
-      setUserType(type);
+        // Only experts can access earnings
+        if (type !== 'expert') {
+          setIsExpert(false);
+          router.push('/dashboard');
+          return;
+        }
 
-      // Only experts can access earnings
-      if (type !== 'expert') {
+        setIsExpert(true);
+      } catch (error) {
+        console.error('Access check error:', error);
         router.push('/dashboard');
-        return;
       }
-
-      await fetchEarnings();
-    } catch (error) {
-      console.error('Access check error:', error);
-      router.push('/dashboard');
     }
-  }
+    checkAccess();
+  }, [router]);
 
-  async function fetchEarnings() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+  const [userId, setUserId] = useState('');
 
-      const response = await fetch('/api/earnings', {
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-        },
-      });
+  // Check access control
+  useEffect(() => {
+    async function checkAccess() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.push('/login');
+          return;
+        }
 
-      const result = await response.json();
-      if (result.success) {
-        setData(result);
+        const type = user.user_metadata?.user_type;
+        setUserType(type);
+        setUserId(user.id); // Add this line
+
+        // Only experts can access earnings
+        if (type !== 'expert') {
+          setIsExpert(false);
+          router.push('/dashboard');
+          return;
+        }
+
+        setIsExpert(true);
+      } catch (error) {
+        console.error('Access check error:', error);
+        router.push('/dashboard');
       }
-    } catch (error) {
-      console.error('Failed to fetch earnings:', error);
-    } finally {
-      setLoading(false);
     }
-  }
+    checkAccess();
+  }, [router]);
 
-  if (loading) {
+  // ✨ SWR for earnings with USER-SPECIFIC caching
+  const { data, error, isLoading } = useSWR<EarningsData>(
+    isExpert && userId ? ['/api/earnings', userId] : null, // Include userId in cache key
+    ([url]) => fetcher(url), // Extract URL from array
+    {
+      refreshInterval: 60000, // Refresh every 60 seconds (earnings change less frequently)
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+      dedupingInterval: 10000,
+    }
+  );
+
+  // Loading state
+  if (isExpert === null || isLoading || !data) {
     return (
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
@@ -97,14 +123,23 @@ export default function EarningsPage() {
     );
   }
 
-  if (!data) {
+  // Error state
+  if (error) {
     return (
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
-          <p className="text-red-600">Failed to load earnings data</p>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800 font-medium">Failed to load earnings data</p>
+            <p className="text-red-600 text-sm mt-1">{error.message}</p>
+          </div>
         </div>
       </div>
     );
+  }
+
+  // Access denied (shouldn't reach here due to redirect, but safety check)
+  if (isExpert === false) {
+    return null;
   }
 
   return (
@@ -144,14 +179,12 @@ export default function EarningsPage() {
         </div>
         {/* --- END OF MODIFIED ROW --- */}
 
-
         {/* --- MODIFIED BOTTOM ROW --- */}
         {/* Payment history is now full-width on its own */}
         <div>
           <PaymentHistory orders={data.orders} />
         </div>
         {/* --- END OF MODIFIED ROW --- */}
-
       </div>
     </div>
   );

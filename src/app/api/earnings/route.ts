@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { trackAsync, perfLogger } from '@/lib/performance-logger';
 
@@ -13,7 +14,7 @@ async function earningsHandler(request: NextRequest) {
     const token = authHeader.replace('Bearer ', '');
     
     const authResult = await trackAsync('auth.getUser', async () => {
-      return await supabase.auth.getUser(token);
+      return await getCachedUser(token);
     });
     
     const { data: { user }, error: authError } = authResult as any;

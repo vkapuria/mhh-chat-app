@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getCachedUser } from '@/lib/cached-auth';
 import { createClient } from '@supabase/supabase-js';
-
 
 // GET: Fetch messages for an order
 export async function GET(request: NextRequest) {
@@ -91,21 +91,8 @@ export async function POST(request: NextRequest) {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Create authenticated Supabase client with user's token
-    const supabaseAuth = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    );
-
-    // Verify user with this authenticated client
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
+    // Use cached auth for validation
+    const { data: { user }, error: authError } = await getCachedUser(token);
     
     if (authError || !user) {
       console.error('❌ Auth error:', authError);
@@ -120,6 +107,19 @@ export async function POST(request: NextRequest) {
       email: user.email,
       expert_id: user.user_metadata?.expert_id,
     });
+
+    // Create authenticated Supabase client with user's token (for RLS)
+    const supabaseAuth = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    );
 
     // Validate required fields
     if (!order_id || !sender_type || !sender_id || !sender_name || !sender_display_name || !message_content) {
