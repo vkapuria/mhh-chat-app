@@ -46,16 +46,17 @@ export default function DashboardPage() {
 
   // ✨ SWR with USER-SPECIFIC caching
   const { data, error, isLoading } = useSWR<DashboardData>(
-    userId ? ['/api/dashboard', userId] : null, // Include userId in cache key
-    ([url]) => fetcher(url), // Extract URL from array
-    {
-      refreshInterval: 30000, // Refresh every 30 seconds
-      revalidateOnFocus: true, // Refresh when user returns to tab
-      revalidateOnReconnect: true, // Refresh when internet reconnects
-      dedupingInterval: 5000, // Prevent duplicate requests within 5s
-      fallbackData: undefined, // No fallback, show loading state
-    }
-  );
+  userId ? ['/api/dashboard', userId] : null,
+  ([url]) => fetcher(url),
+  {
+    refreshInterval: 60000, // 60s instead of 30s
+    revalidateOnFocus: false, // Don't refetch on focus
+    revalidateOnReconnect: false, // Don't refetch on reconnect
+    dedupingInterval: 15000, // 15s dedup window
+    revalidateOnMount: true, // Still fetch on first mount
+    fallbackData: undefined,
+  }
+);
 
   // Get user type on mount
   useEffect(() => {

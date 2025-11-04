@@ -31,7 +31,22 @@ async function ordersHandler(request: NextRequest) {
     const userType = user.user_metadata?.user_type;
     const expertId = user.user_metadata?.expert_id;
 
-    let query = supabase.from('orders').select('*');
+    // ✅ OPTIMIZATION: Lean SELECT (only what UI needs)
+    let query = supabase.from('orders').select(`
+      id,
+      title,
+      task_code,
+      status,
+      deadline,
+      created_at,
+      updated_at,
+      customer_name,
+      customer_display_name,
+      expert_name,
+      expert_display_name,
+      amount,
+      expert_fee
+    `);
 
     // Filter based on user type
     if (userType === 'customer') {
@@ -56,12 +71,15 @@ async function ordersHandler(request: NextRequest) {
       query = query.or(`id.ilike.%${search}%,title.ilike.%${search}%`);
     }
 
+    // ✅ OPTIMIZATION: Pagination (limit to 50 orders)
     // Order by updated_at desc
-    query = query.order('updated_at', { ascending: false });
+    query = query
+      .order('updated_at', { ascending: false })
+      .limit(50);
 
     const ordersResult = await trackAsync('orders.fetch', async () => {
       return await query;
-    }, { userType, status, search });
+    }, { userType, status, search, limit: 50 });
 
     const { data: orders, error } = ordersResult as any;
 
@@ -132,7 +150,8 @@ async function ordersHandler(request: NextRequest) {
     perfLogger.end('orders.enrichment', {
       orderCount: orders?.length || 0,
       completedCount: completedOrderIds.length,
-      strategy: 'batch-query'
+      strategy: 'sql-optimized',
+      limit: 50
     });
 
     return NextResponse.json({

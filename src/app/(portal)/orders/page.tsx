@@ -38,15 +38,16 @@ export default function OrdersPage() {
 
   // ✨ SWR for orders with USER-SPECIFIC caching
   const { data, error, isLoading } = useSWR<OrdersResponse>(
-    userId ? ['/api/orders', userId] : null,
-    ([url]) => fetcher(url),
-    {
-      refreshInterval: 30000,
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 5000,
-    }
-  );
+  userId ? ['/api/orders', userId] : null,
+  ([url]) => fetcher(url),
+  {
+    refreshInterval: 60000, // 60s instead of 30s
+    revalidateOnFocus: false, // Don't refetch when returning to tab
+    revalidateOnReconnect: false, // Don't refetch on reconnect
+    dedupingInterval: 15000, // 15s dedup window (up from 5s)
+    revalidateOnMount: true, // Still fetch on first mount
+  }
+);
 
   const orders = data?.orders || [];
 

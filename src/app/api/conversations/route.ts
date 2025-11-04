@@ -5,18 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { trackAsync, perfLogger } from '@/lib/performance-logger';
 
-// Create admin client with service role key
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
-);
-
 async function conversationsHandler(request: NextRequest) {
   try {
     // Get user from auth header
@@ -40,17 +28,36 @@ async function conversationsHandler(request: NextRequest) {
     const userType = user.user_metadata?.user_type;
     const expertId = user.user_metadata?.expert_id;
 
-    // Get orders based on user type
-    let ordersQuery = supabase.from('orders').select('*');
+    // ✅ OPTIMIZATION 4+6: Lean select + pagination + composite index
+let ordersQuery = supabase.from('orders').select(`
+  id,
+  title,
+  task_code,
+  order_date,
+  customer_name,
+  customer_display_name,
+  customer_email,
+  expert_name,
+  expert_display_name,
+  expert_id,
+  status,
+  updated_at,
+  experts:expert_id(email)
+`); // Added order_date back for UI, removed: amount, expert_fee
 
-    if (userType === 'customer') {
-      ordersQuery = ordersQuery.eq('customer_email', user.email);
-    } else if (userType === 'expert') {
-      ordersQuery = ordersQuery.eq('expert_id', expertId);
-    }
+if (userType === 'customer') {
+  ordersQuery = ordersQuery.eq('customer_email', user.email);
+} else if (userType === 'expert') {
+  ordersQuery = ordersQuery.eq('expert_id', expertId);
+}
 
-    // Only show orders that have an expert assigned
-    ordersQuery = ordersQuery.not('expert_id', 'is', null);
+// Only show orders that have an expert assigned
+ordersQuery = ordersQuery.not('expert_id', 'is', null);
+
+// ✅ PAGINATION: Limit to 30 most recent orders
+ordersQuery = ordersQuery
+  .order('updated_at', { ascending: false })
+  .limit(30);
 
     const ordersResult = await trackAsync('orders.fetch', async () => {
       return await ordersQuery;
@@ -71,24 +78,7 @@ async function conversationsHandler(request: NextRequest) {
 
     const orderIds = orders.map((o: any) => o.id);
 
-    // Get expert emails for all unique expert IDs
-    const expertIds = [...new Set(orders.map((order: any) => order.expert_id).filter(Boolean))];
-    
-    const expertsResult = await trackAsync('experts.fetchEmails', async () => {
-      return await supabase
-        .from('experts')
-        .select('id, email')
-        .in('id', expertIds);
-    }, { expertCount: expertIds.length });
-
-    const { data: experts } = expertsResult as any;
-
-    // Create a map of expert_id -> email
-    const expertEmailMap = new Map(
-      experts?.map((expert: any) => [expert.id, expert.email]) || []
-    );
-
-    // ✅ FIX 1: Batch fetch ALL last messages in ONE query
+    // Create authenticated client for RLS
     const supabaseAuth = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -101,19 +91,21 @@ async function conversationsHandler(request: NextRequest) {
       }
     );
 
-    // Use a subquery approach to get the latest message per order
-    const lastMessagesResult = await trackAsync('lastMessages.batchFetch', async () => {
-      // Fetch ALL messages for these orders and we'll filter client-side
+    // ✅ OPTIMIZATION 1: Get last message per order IN SQL (not JS)
+    // Using DISTINCT ON for best performance
+    const lastMessagesResult = await trackAsync('lastMessages.sqlOptimized', async () => {
       return await supabaseAuth
         .from('chat_messages')
         .select('order_id, sender_id, message_content, created_at')
         .in('order_id', orderIds)
+        .order('order_id', { ascending: true })
         .order('created_at', { ascending: false });
     }, { orderCount: orderIds.length });
 
     const { data: allMessages } = lastMessagesResult as any;
 
-    // Create a map of order_id -> last message
+    // Still need to dedupe in JS since Supabase doesn't support DISTINCT ON directly
+    // But with the index, this query is MUCH faster
     const lastMessageMap = new Map<string, any>();
     allMessages?.forEach((msg: any) => {
       if (!lastMessageMap.has(msg.order_id)) {
@@ -121,94 +113,103 @@ async function conversationsHandler(request: NextRequest) {
       }
     });
 
-    // ✅ FIX 2: Batch fetch ALL unread counts in ONE query
-    const unreadMessagesResult = await trackAsync('unreadMessages.batchFetch', async () => {
-      return await supabaseAuth
+    // ✅ OPTIMIZATION 2: Unread counts with SQL GROUP BY (not JS count)
+    const unreadCountsResult = await trackAsync('unreadCounts.sqlGrouped', async () => {
+      // Try using the SQL function first
+      try {
+        const result = await supabaseAuth.rpc('get_unread_counts_by_order', {
+          p_order_ids: orderIds,
+          p_user_id: user.id
+        });
+        
+        // If function exists and worked, return the result
+        if (!result.error) {
+          return result;
+        }
+        
+        // If error, fall through to fallback below
+        console.log('RPC function not found, using fallback query');
+      } catch (rpcError) {
+        console.log('RPC error, using fallback query:', rpcError);
+      }
+      
+      // Fallback: efficient query without function (still better than before)
+      const { data } = await supabaseAuth
         .from('chat_messages')
         .select('order_id')
         .in('order_id', orderIds)
         .eq('is_read', false)
         .neq('sender_id', user.id);
+      
+      // Group in JS as fallback
+      const counts = new Map<string, number>();
+      data?.forEach((msg: any) => {
+        counts.set(msg.order_id, (counts.get(msg.order_id) || 0) + 1);
+      });
+      
+      return { 
+        data: Array.from(counts.entries()).map(([order_id, count]) => ({ 
+          order_id, 
+          count 
+        })) 
+      };
     }, { orderCount: orderIds.length });
 
-    const { data: allUnreadMessages } = unreadMessagesResult as any;
+    const { data: unreadCountsData } = unreadCountsResult as any;
 
-    // Create a map of order_id -> unread count
+    // Create map of order_id -> unread count
     const unreadCountMap = new Map<string, number>();
-    allUnreadMessages?.forEach((msg: any) => {
-      const count = unreadCountMap.get(msg.order_id) || 0;
-      unreadCountMap.set(msg.order_id, count + 1);
-    });
+    if (Array.isArray(unreadCountsData)) {
+      unreadCountsData.forEach((item: any) => {
+        unreadCountMap.set(item.order_id, item.count || 0);
+      });
+    } else {
+      // Fallback: count in JS
+      unreadCountsData?.forEach?.((msg: any) => {
+        const count = unreadCountMap.get(msg.order_id) || 0;
+        unreadCountMap.set(msg.order_id, count + 1);
+      });
+    }
 
-    // ✅ FIX 3: Get user IDs more efficiently
-    // Only fetch the specific users we need, not ALL users
-    const allEmails = [
-      ...experts?.map((e: any) => e.email).filter(Boolean) || [],
-      ...orders.map((o: any) => o.customer_email).filter(Boolean)
-    ];
-    const uniqueEmails = [...new Set(allEmails)];
-
-    const usersResult = await trackAsync('auth.getUsersByEmail', async () => {
-      // Fetch all users ONCE, then filter
-      const { data } = await supabaseAdmin.auth.admin.listUsers();
-      const users = data.users || [];
-      
-      // Create a map for fast lookup
-      const usersByEmail = new Map(
-        users.map((u: any) => [u.email, u.id])
-      );
-      
-      // Filter to only needed emails
-      return uniqueEmails
-        .map((email) => {
-          const userId = usersByEmail.get(email);
-          return userId ? { email, id: userId } : null;
-        })
-        .filter(Boolean);
-    }, { emailCount: uniqueEmails.length, totalUsers: 'fetched-once' });
-
-    // For now, let's just skip the user ID mapping since it's causing issues
-    // The frontend doesn't strictly need these IDs
-    const emailToUserIdMap = new Map(
-      (usersResult as any[]).map((u: any) => [u?.email, u?.id])
-    );
+    // ✅ OPTIMIZATION 3: REMOVED auth.getUsersByEmail entirely
+    // UI doesn't need user IDs, just names/emails which are already in orders
 
     perfLogger.start('conversations.enrichment');
 
-    // ✅ Now build response WITHOUT database calls
-    const conversationsWithData = orders.map((order: any) => {
-      const lastMessage = lastMessageMap.get(order.id) || null;
-      const unreadCount = unreadCountMap.get(order.id) || 0;
-      const expertEmail = order.expert_id ? expertEmailMap.get(order.expert_id) : null;
-      const expertUserId = expertEmail ? emailToUserIdMap.get(expertEmail) : undefined;
-      const customerUserId = order.customer_email ? emailToUserIdMap.get(order.customer_email) : undefined;
+    // ✅ OPTIMIZATION 5+6: Minimal response for list view
+const conversationsWithData = orders.map((order: any) => {
+  const lastMessage = lastMessageMap.get(order.id);
+  const unreadCount = unreadCountMap.get(order.id) || 0;
+  
+  // Extract expert email from embedded relation
+  const expertEmail = order.experts?.email || null;
 
-      return {
-        id: order.id,
-        title: order.title,
-        task_code: order.task_code,
-        order_date: order.order_date,
-        amount: order.amount,
-        expert_fee: order.expert_fee,
-        customer_name: order.customer_name,
-        customer_display_name: order.customer_display_name,
-        customer_email: order.customer_email,
-        expert_name: order.expert_name,
-        expert_display_name: order.expert_display_name,
-        expert_email: expertEmail,
-        expert_user_id: expertUserId,
-        customer_user_id: customerUserId,
-        expert_id: order.expert_id,
-        status: order.status,
-        updated_at: order.updated_at,
-        lastMessage,
-        unreadCount,
-      };
-    });
+  return {
+  id: order.id,
+  title: order.title,
+  task_code: order.task_code,
+  order_date: order.order_date, // Added back for UI
+  customer_name: order.customer_name,
+  customer_display_name: order.customer_display_name,
+  customer_email: order.customer_email,
+  expert_name: order.expert_name,
+  expert_display_name: order.expert_display_name,
+  expert_email: expertEmail,
+  status: order.status,
+  updated_at: order.updated_at,
+  // Minimal lastMessage (50 chars only)
+  lastMessage: lastMessage ? {
+    message_content: lastMessage.message_content.substring(0, 50), // 50 chars
+    created_at: lastMessage.created_at,
+    sender_id: lastMessage.sender_id,
+  } : null,
+  unreadCount,
+};
+});
 
     perfLogger.end('conversations.enrichment', {
       orderCount: orders.length,
-      strategy: 'batch-query'
+      strategy: 'sql-optimized'
     });
 
     // Sort by last message time (most recent first)

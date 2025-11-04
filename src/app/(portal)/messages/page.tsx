@@ -47,13 +47,14 @@ export default function MessagesPage() {
 
   // ✨ SWR for conversations with USER-SPECIFIC caching
   const { data, error, isLoading, mutate } = useSWR<ConversationsResponse>(
-    userId ? ['/api/conversations', userId] : null, // Include userId in cache key
-    ([url]) => fetcher(url), // Extract URL from array
+    userId ? ['/api/conversations', userId] : null,
+    ([url]) => fetcher(url),
     {
-      refreshInterval: 15000, // Refresh every 15 seconds (more frequent for real-time feel)
-      revalidateOnFocus: true,
-      revalidateOnReconnect: true,
-      dedupingInterval: 3000, // Faster deduping for messages
+      refreshInterval: 60000, // 60s instead of 15s
+      revalidateOnFocus: false, // Don't refetch when clicking into chat
+      revalidateOnReconnect: false, // Don't refetch on reconnect
+      dedupingInterval: 15000, // 15s dedup window (up from 3s)
+      revalidateOnMount: true, // Still fetch on first mount
     }
   );
 
