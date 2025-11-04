@@ -44,7 +44,7 @@ export default function OrderChatPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push('/chat')}
+              onClick={() => router.push('/orders')}
             >
               <ArrowLeftIcon className="w-4 h-4 mr-2" />
               Back to Orders
