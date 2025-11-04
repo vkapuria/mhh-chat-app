@@ -6,6 +6,7 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -17,6 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'; // Added Tabs
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
@@ -28,8 +35,10 @@ interface ContactSupportModalProps {
     amount: number;
     expert_fee?: number;
     customer_name?: string;
+    customer_display_name?: string;
     customer_email?: string;
     expert_name?: string;
+    expert_display_name?: string;
     expert_email?: string;
   };
   userType: 'customer' | 'expert';
@@ -60,6 +69,16 @@ export function ContactSupportModal({
   const [issueType, setIssueType] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Reset form when modal closes
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setIssueType('');
+      setMessage('');
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async () => {
     // Validation
@@ -107,10 +126,8 @@ export function ContactSupportModal({
       const result = await response.json();
 
       if (result.success) {
-        toast.success('Support request sent! We\'ll get back to you soon.');
-        setOpen(false);
-        setIssueType('');
-        setMessage('');
+        toast.success("Support request sent! We'll get back to you soon.");
+        handleOpenChange(false); // Close and reset form
       } else {
         toast.error(result.error || 'Failed to send support request');
       }
@@ -123,11 +140,9 @@ export function ContactSupportModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        {children}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogTrigger asChild>{children}</DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Contact Support</DialogTitle>
           <DialogDescription>
@@ -135,78 +150,116 @@ export function ContactSupportModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Order Details (Read-only) */}
-          <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm">
-            <h4 className="font-semibold text-slate-900 mb-2">Order Details</h4>
-            <p><span className="text-slate-600">Order ID:</span> <span className="font-mono text-slate-900">{order.id}</span></p>
-            <p><span className="text-slate-600">Title:</span> <span className="text-slate-900">{order.title}</span></p>
-            <p><span className="text-slate-600">Customer:</span> <span className="text-slate-900">{order.customer_name}</span></p>
-            {order.expert_name && (
-              <p><span className="text-slate-600">Expert:</span> <span className="text-slate-900">{order.expert_name}</span></p>
-            )}
-            <p>
-              <span className="text-slate-600">Amount:</span>{' '}
-              <span className="text-slate-900">
-                {userType === 'customer' ? `$${order.amount}` : `₹${order.expert_fee || order.amount}`}
-              </span>
-            </p>
-          </div>
+        {/* --- NEW TABS LAYOUT --- */}
+        <Tabs defaultValue="request" className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="request">Submit Request</TabsTrigger>
+            <TabsTrigger value="details">Order Details</TabsTrigger>
+          </TabsList>
 
-          {/* Issue Type Dropdown */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900">
-              What do you need help with? <span className="text-red-500">*</span>
-            </label>
-            <Select value={issueType} onValueChange={setIssueType}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select issue type" />
-              </SelectTrigger>
-              <SelectContent>
-                {ISSUE_TYPES.map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {type}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Scrolling container for tab content */}
+          <div className="py-4 max-h-[60vh] overflow-y-auto pr-2">
+            {/* Tab 1: Submit Request Form */}
+            <TabsContent value="request">
+              <div className="space-y-4">
+                {/* Issue Type Dropdown */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900">
+                    What do you need help with?{' '}
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <Select value={issueType} onValueChange={setIssueType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select issue type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ISSUE_TYPES.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          {/* Message Textarea */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-900">
-              Describe your issue <span className="text-red-500">*</span>
-            </label>
-            <Textarea
-              placeholder="Please provide as much detail as possible..."
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={6}
-              maxLength={MAX_CHARS}
-              className="resize-none"
-            />
-            <p className="text-xs text-slate-500 text-right">
-              {message.length} / {MAX_CHARS} characters
-            </p>
-          </div>
-        </div>
+                {/* Message Textarea */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-900">
+                    Describe your issue <span className="text-red-500">*</span>
+                  </label>
+                  <Textarea
+                    placeholder="Please provide as much detail as possible..."
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    rows={8}
+                    maxLength={MAX_CHARS}
+                    className="resize-none"
+                  />
+                  <p className="text-xs text-slate-500 text-right">
+                    {message.length} / {MAX_CHARS} characters
+                  </p>
+                </div>
+              </div>
+            </TabsContent>
 
-        {/* Actions */}
-        <div className="flex gap-3 justify-end">
+            {/* Tab 2: Order Details */}
+            <TabsContent value="details">
+              <div className="bg-slate-50 p-4 rounded-lg space-y-2 text-sm border">
+                <h4 className="font-semibold text-slate-900 mb-2">
+                  Order Details
+                </h4>
+                <p>
+                  <span className="text-slate-600">Order ID:</span>{' '}
+                  <span className="font-mono text-slate-900">{order.id}</span>
+                </p>
+                <p>
+                  <span className="text-slate-600">Title:</span>{' '}
+                  <span className="text-slate-900">{order.title}</span>
+                </p>
+                <p>
+                  <span className="text-slate-600">Customer:</span>{' '}
+                  <span className="text-slate-900">
+                    {order.customer_display_name || order.customer_name}
+                  </span>
+                </p>
+                {order.expert_name && (
+                  <p>
+                    <span className="text-slate-600">Expert:</span>{' '}
+                    <span className="text-slate-900">
+                      {order.expert_display_name || order.expert_name}
+                    </span>
+                  </p>
+                )}
+                <p>
+                  <span className="text-slate-600">
+                    {userType === 'customer' ? 'Paid:' : 'Fee:'}
+                  </span>{' '}
+                  <span className="text-slate-900">
+                    {userType === 'customer'
+                      ? `$${order.amount}`
+                      : `₹${order.expert_fee || order.amount}`}
+                  </span>
+                </p>
+              </div>
+            </TabsContent>
+          </div>
+        </Tabs>
+        {/* --- END TABS LAYOUT --- */}
+
+        {/* Actions (Footer) */}
+        <DialogFooter className="pt-4 border-t">
           <Button
             variant="outline"
-            onClick={() => setOpen(false)}
+            onClick={() => handleOpenChange(false)}
             disabled={loading}
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSubmit}
-            disabled={loading}
-          >
+          <Button onClick={handleSubmit} disabled={loading}>
+            <img src="/icons/gmail.svg" alt="Send" className="w-4 h-4 mr-2" />
             {loading ? 'Sending...' : 'Send Request'}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

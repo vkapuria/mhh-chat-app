@@ -39,52 +39,188 @@ export async function POST(request: NextRequest) {
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #2563eb; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-            .content { background: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-            .section { margin-bottom: 20px; }
-            .label { font-weight: bold; color: #4b5563; }
-            .value { color: #1f2937; margin-left: 10px; }
-            .message-box { background: white; padding: 15px; border-radius: 6px; border: 1px solid #e5e7eb; margin-top: 10px; }
-            .footer { background: #f3f4f6; padding: 15px; text-align: center; font-size: 12px; color: #6b7280; border-radius: 0 0 8px 8px; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              line-height: 1.6; 
+              color: #1f2937; 
+              background-color: #f9f9f9;
+              margin: 0;
+              padding: 0;
+            }
+            .wrapper { 
+              max-width: 600px; 
+              margin: 40px auto; 
+              background: white;
+              border-radius: 8px;
+              overflow: hidden;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+            .header { 
+              background: #f9f9f9;
+              padding: 30px; 
+              border-bottom: 2px solid #e5e7eb;
+            }
+            .logo {
+              width: 150px;
+              height: auto;
+            }
+            @media only screen and (max-width: 600px) {
+              .logo {
+                width: 100px;
+              }
+            }
+            .content { 
+              padding: 30px;
+              background: white;
+            }
+            .greeting {
+              font-size: 16px;
+              color: #374151;
+              margin-bottom: 25px;
+              line-height: 1.6;
+            }
+            .info-card {
+              background: white;
+              border: 2px solid #d1d5db;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+            .info-row {
+              display: flex;
+              padding: 10px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .info-row:last-child {
+              border-bottom: none;
+            }
+            .info-label {
+              font-weight: 600;
+              color: #6b7280;
+              min-width: 130px;
+              font-size: 14px;
+            }
+            .info-value {
+              color: #1f2937;
+              font-size: 14px;
+            }
+            .section-title {
+              font-size: 17px;
+              font-weight: 600;
+              color: #1f2937;
+              margin: 30px 0 12px 0;
+            }
+            .message-box {
+              background: white;
+              border: 2px solid #d1d5db;
+              border-radius: 8px;
+              padding: 20px;
+              margin-top: 12px;
+              font-size: 15px;
+              line-height: 1.7;
+              color: #374151;
+            }
+            .footer {
+              background: #f9f9f9;
+              padding: 24px 30px;
+              text-align: center;
+              border-top: 2px solid #e5e7eb;
+            }
+            .footer p {
+              margin: 6px 0;
+              font-size: 13px;
+              color: #6b7280;
+            }
+            .reply-cta {
+              background: #2563eb;
+              color: white;
+              padding: 12px 24px;
+              border-radius: 6px;
+              text-decoration: none;
+              display: inline-block;
+              margin: 15px 0 10px 0;
+              font-weight: 500;
+              font-size: 14px;
+            }
           </style>
         </head>
         <body>
-          <div class="container">
+          <div class="wrapper">
+            
+            <!-- Header with Logo -->
             <div class="header">
-              <h2 style="margin: 0;">🆘 Support Request</h2>
-              <p style="margin: 5px 0 0 0; opacity: 0.9;">from ${userName}</p>
+              <img src="https://chat-app-vaibhavs-projects-663508bd.vercel.app/icons/mhh-logo.png" alt="MyHomeworkHelp" class="logo" />
             </div>
             
+            <!-- Content -->
             <div class="content">
-              <div class="section">
-                <p><span class="label">Issue Type:</span><span class="value">${issueType}</span></p>
-                <p><span class="label">User Type:</span><span class="value">${userType === 'customer' ? 'Customer' : 'Expert'}</span></p>
-                <p><span class="label">User Email:</span><span class="value">${userEmail}</span></p>
+              
+              <!-- Greeting -->
+              <div class="greeting">
+                <strong>${userName}</strong> has submitted a support request regarding order <strong>${taskCode}</strong>. Please review the details below and respond promptly.
               </div>
               
-              <div class="section">
-                <h3 style="color: #1f2937; margin-top: 0;">📋 Order Details</h3>
-                <p><span class="label">Order ID:</span><span class="value">${taskCode}</span></p>
-                <p><span class="label">Title:</span><span class="value">${orderTitle}</span></p>
-                <p><span class="label">Customer:</span><span class="value">${customerName} (${customerEmail})</span></p>
-                <p><span class="label">Expert:</span><span class="value">${expertName || 'Not assigned'} ${expertEmail ? `(${expertEmail})` : ''}</span></p>
-                <p><span class="label">Amount:</span><span class="value">$${amount} ${expertFee ? `/ ₹${expertFee}` : ''}</span></p>
-              </div>
-              
-              <div class="section">
-                <h3 style="color: #1f2937;">💬 Message</h3>
-                <div class="message-box">
-                  ${message.replace(/\n/g, '<br>')}
+              <!-- 1. Request Information -->
+              <div class="section-title">Request Information</div>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Issue Type</span>
+                  <span class="info-value">${issueType}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Submitted By</span>
+                  <span class="info-value">${userName} (${userType === 'customer' ? 'Customer' : 'Expert'})</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Contact Email</span>
+                  <span class="info-value">${userEmail}</span>
                 </div>
               </div>
+              
+              <!-- 2. Customer/Expert Message -->
+              <div class="section-title">${userType === 'customer' ? 'Customer' : 'Expert'} Message</div>
+              <div class="message-box">
+                ${message.replace(/\n/g, '<br>')}
+              </div>
+              
+              <!-- 3. Related Order -->
+              <div class="section-title">Related Order Details</div>
+              <div class="info-card">
+                <div class="info-row">
+                  <span class="info-label">Order ID</span>
+                  <span class="info-value"><strong>${taskCode}</strong></span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Title</span>
+                  <span class="info-value">${orderTitle}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Customer</span>
+                  <span class="info-value">${customerName}<br/><small style="color: #6b7280;">${customerEmail}</small></span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Expert</span>
+                  <span class="info-value">${expertName || 'Not assigned yet'}${expertEmail ? `<br/><small style="color: #6b7280;">${expertEmail}</small>` : ''}</span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">Order Value</span>
+                  <span class="info-value">$${amount}${expertFee ? ` / ₹${expertFee}` : ''}</span>
+                </div>
+              </div>
+              
             </div>
             
+            <!-- Footer -->
             <div class="footer">
-              <p>Sent from MyHomeworkHelp Support System</p>
-              <p>Reply to this email to respond directly to ${userName}</p>
+              <a href="mailto:${userEmail}" class="reply-cta">Reply to ${userName}</a>
+              <p style="margin-top: 15px; color: #9ca3af;">
+                This support request was sent via MyHomeworkHelp Support System
+              </p>
+              <p style="color: #9ca3af;">
+                Simply reply to this email to respond directly to ${userName}
+              </p>
             </div>
+            
           </div>
         </body>
       </html>
@@ -92,7 +228,7 @@ export async function POST(request: NextRequest) {
 
     // Send email via Resend
     const { data, error } = await resend.emails.send({
-      from: 'MyHomeworkHelp Support <support@myhomeworkhelp.com>',
+      from: 'MHH Support <support@myhomeworkhelp.com>',
       to: 'orders@myhomeworkhelp.com',
       replyTo: userEmail,
       subject: emailSubject,
