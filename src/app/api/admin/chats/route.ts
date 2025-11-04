@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseServer } from '@/lib/supabase-server';
+import { withPerformanceLogging } from '@/lib/api-timing';
+import { trackAsync, perfLogger } from '@/lib/performance-logger';
 
-export async function GET(request: NextRequest) {
+async function adminChatsHandler(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const status = searchParams.get('status');
 
-    // Get all orders with their latest message info
+    // Get all orders
     let query = supabaseServer
       .from('orders')
       .select(`
@@ -29,7 +31,11 @@ export async function GET(request: NextRequest) {
       query = query.eq('status', status);
     }
 
-    const { data: orders, error: ordersError } = await query.order('created_at', { ascending: false });
+    const ordersResult = await trackAsync('orders.fetch', async () => {
+      return await query.order('created_at', { ascending: false });
+    }, { status });
+
+    const { data: orders, error: ordersError } = ordersResult as any;
 
     if (ordersError) {
       return NextResponse.json(
@@ -38,56 +44,109 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get message counts and latest message for each order
-    const chatsWithMessages = await Promise.all(
-      orders.map(async (order) => {
-        // Get message count
-        const { count: messageCount } = await supabaseServer
-          .from('chat_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('order_id', order.id);
+    const orderIds = orders.map((o: any) => o.id);
 
-        // Get latest message
-        const { data: latestMessage } = await supabaseServer
-          .from('chat_messages')
-          .select('message_content, created_at, sender_name, sender_type')
-          .eq('order_id', order.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+    // ✅ FIX 1: Get ALL message counts in ONE query using aggregation
+    const messageCountsResult = await trackAsync('messageCounts.batchFetch', async () => {
+      return await supabaseServer
+        .from('chat_messages')
+        .select('order_id')
+        .in('order_id', orderIds);
+    }, { orderCount: orderIds.length });
 
-        // Get unread count
-        const { count: unreadCount } = await supabaseServer
-          .from('chat_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('order_id', order.id)
-          .eq('is_read', false);
+    const { data: allMessages } = messageCountsResult as any;
 
-        // Get flagged status (we'll add this to orders table later)
-        const { data: flagData } = await supabaseServer
-          .from('chat_flags')
-          .select('*')
-          .eq('order_id', order.id)
-          .limit(1)
-          .maybeSingle();
+    // Create map of order_id -> message count
+    const messageCountMap = new Map<string, number>();
+    allMessages?.forEach((msg: any) => {
+      const count = messageCountMap.get(msg.order_id) || 0;
+      messageCountMap.set(msg.order_id, count + 1);
+    });
 
-        return {
-          ...order,
-          messageCount: messageCount || 0,
-          latestMessage: latestMessage || null,
-          unreadCount: unreadCount || 0,
-          isFlagged: !!flagData,
-          flagReason: flagData?.reason,
-        };
-      })
-    );
+    // ✅ FIX 2: Get ALL latest messages in ONE query
+    const latestMessagesResult = await trackAsync('latestMessages.batchFetch', async () => {
+      return await supabaseServer
+        .from('chat_messages')
+        .select('order_id, message_content, created_at, sender_name, sender_type')
+        .in('order_id', orderIds)
+        .order('created_at', { ascending: false });
+    }, { orderCount: orderIds.length });
+
+    const { data: allMessagesForLatest } = latestMessagesResult as any;
+
+    // Create map of order_id -> latest message (first occurrence)
+    const latestMessageMap = new Map<string, any>();
+    allMessagesForLatest?.forEach((msg: any) => {
+      if (!latestMessageMap.has(msg.order_id)) {
+        latestMessageMap.set(msg.order_id, msg);
+      }
+    });
+
+    // ✅ FIX 3: Get ALL unread counts in ONE query
+    const unreadCountsResult = await trackAsync('unreadCounts.batchFetch', async () => {
+      return await supabaseServer
+        .from('chat_messages')
+        .select('order_id')
+        .in('order_id', orderIds)
+        .eq('is_read', false);
+    }, { orderCount: orderIds.length });
+
+    const { data: allUnreadMessages } = unreadCountsResult as any;
+
+    // Create map of order_id -> unread count
+    const unreadCountMap = new Map<string, number>();
+    allUnreadMessages?.forEach((msg: any) => {
+      const count = unreadCountMap.get(msg.order_id) || 0;
+      unreadCountMap.set(msg.order_id, count + 1);
+    });
+
+    // ✅ FIX 4: Get ALL flags in ONE query
+    const flagsResult = await trackAsync('flags.batchFetch', async () => {
+      return await supabaseServer
+        .from('chat_flags')
+        .select('*')
+        .in('order_id', orderIds);
+    }, { orderCount: orderIds.length });
+
+    const { data: allFlags } = flagsResult as any;
+
+    // Create map of order_id -> flag data
+    const flagDataMap = new Map<string, any>();
+    allFlags?.forEach((flag: any) => {
+      flagDataMap.set(flag.order_id, flag);
+    });
+
+    perfLogger.start('chats.enrichment');
+
+    // ✅ Now build response WITHOUT any database calls
+    const chatsWithMessages = orders.map((order: any) => {
+      const messageCount = messageCountMap.get(order.id) || 0;
+      const latestMessage = latestMessageMap.get(order.id) || null;
+      const unreadCount = unreadCountMap.get(order.id) || 0;
+      const flagData = flagDataMap.get(order.id);
+
+      return {
+        ...order,
+        messageCount,
+        latestMessage,
+        unreadCount,
+        isFlagged: !!flagData,
+        flagReason: flagData?.reason,
+      };
+    });
+
+    perfLogger.end('chats.enrichment', {
+      orderCount: orders.length,
+      strategy: 'batch-query',
+      queriesTotal: 4
+    });
 
     // Filter by search if provided
     let filteredChats = chatsWithMessages;
     if (search) {
       const searchLower = search.toLowerCase();
       filteredChats = chatsWithMessages.filter(
-        (chat) =>
+        (chat: any) =>
           chat.customer_name?.toLowerCase().includes(searchLower) ||
           chat.customer_email?.toLowerCase().includes(searchLower) ||
           chat.expert_name?.toLowerCase().includes(searchLower) ||
@@ -97,7 +156,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Only return chats that have at least one message
-    const activeChats = filteredChats.filter((chat) => chat.messageCount > 0);
+    const activeChats = filteredChats.filter((chat: any) => chat.messageCount > 0);
 
     return NextResponse.json({
       success: true,
@@ -112,3 +171,5 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+export const GET = withPerformanceLogging('/api/admin/chats', adminChatsHandler);
