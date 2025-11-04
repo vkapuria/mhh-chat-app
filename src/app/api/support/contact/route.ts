@@ -51,9 +51,9 @@ export async function POST(request: NextRequest) {
               max-width: 600px; 
               margin: 40px auto; 
               background: white;
-              border-radius: 8px;
+              border-radius: 16px;
               overflow: hidden;
-              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+              box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
             }
             .header { 
               background: #f9f9f9;
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
             
             <!-- Header with Logo -->
             <div class="header">
-              <img src="https://chat-app-vaibhavs-projects-663508bd.vercel.app/icons/mhh-logo.png" alt="MyHomeworkHelp" class="logo" />
+              <img src="https://i.ibb.co/5xj5Pvc8/final-files-mhh-copy-3.png" alt="MyHomeworkHelp" class="logo" />
             </div>
             
             <!-- Content -->
@@ -157,11 +157,11 @@ export async function POST(request: NextRequest) {
               
               <!-- Greeting -->
               <div class="greeting">
-                <strong>${userName}</strong> has submitted a support request regarding order <strong>${taskCode}</strong>. Please review the details below and respond promptly.
+                A support request has been submitted for order <strong>${taskCode}</strong>. Please review the details below and respond promptly.
               </div>
               
               <!-- 1. Request Information -->
-              <div class="section-title">Request Information</div>
+              <div class="section-title">📩 Request Information</div>
               <div class="info-card">
                 <div class="info-row">
                   <span class="info-label">Issue Type</span>
@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
                 </div>
                 <div class="info-row">
                   <span class="info-label">Submitted By</span>
-                  <span class="info-value">${userName} (${userType === 'customer' ? 'Customer' : 'Expert'})</span>
+                  <span class="info-value">${userType === 'customer' ? 'Customer' : 'Expert'}: ${userName}</span>
                 </div>
                 <div class="info-row">
                   <span class="info-label">Contact Email</span>
@@ -178,13 +178,13 @@ export async function POST(request: NextRequest) {
               </div>
               
               <!-- 2. Customer/Expert Message -->
-              <div class="section-title">${userType === 'customer' ? 'Customer' : 'Expert'} Message</div>
+              <div class="section-title">💬 ${userType === 'customer' ? 'Customer' : 'Expert'} Message</div>
               <div class="message-box">
                 ${message.replace(/\n/g, '<br>')}
               </div>
               
               <!-- 3. Related Order -->
-              <div class="section-title">Related Order Details</div>
+              <div class="section-title">📦 Related Order Details</div>
               <div class="info-card">
                 <div class="info-row">
                   <span class="info-label">Order ID</span>
@@ -196,12 +196,14 @@ export async function POST(request: NextRequest) {
                 </div>
                 <div class="info-row">
                   <span class="info-label">Customer</span>
-                  <span class="info-value">${customerName}<br/><small style="color: #6b7280;">${customerEmail}</small></span>
+                  <span class="info-value">${customerName}</span>
                 </div>
+                ${expertName ? `
                 <div class="info-row">
                   <span class="info-label">Expert</span>
-                  <span class="info-value">${expertName || 'Not assigned yet'}${expertEmail ? `<br/><small style="color: #6b7280;">${expertEmail}</small>` : ''}</span>
+                  <span class="info-value">${expertName}</span>
                 </div>
+                ` : ''}
                 <div class="info-row">
                   <span class="info-label">Order Value</span>
                   <span class="info-value">$${amount}${expertFee ? ` / ₹${expertFee}` : ''}</span>
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
                 This support request was sent via MyHomeworkHelp Support System
               </p>
               <p style="color: #9ca3af;">
-                Simply reply to this email to respond directly to ${userName}
+                Simply reply to this email to respond directly to the ${userType === 'customer' ? 'customer' : 'expert'}
               </p>
             </div>
             
