@@ -32,6 +32,8 @@ interface ChatWindowProps {
   otherPartyName: string;
   otherPartyEmail?: string;
   otherPartyId?: string;  // Add this!
+  isClosed?: boolean;  // ADD THIS
+  closedReason?: string;  // ADD THIS
 }
 
 export function ChatWindow({
@@ -42,6 +44,8 @@ export function ChatWindow({
   otherPartyName,
   otherPartyEmail,
   otherPartyId,  // Add this line!
+  isClosed = false,
+  closedReason,
 }: ChatWindowProps) {
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -642,38 +646,71 @@ useEffect(() => {
         )}
       </AnimatePresence>
 
-      {/* Input */}
-      <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
-        <div className="flex gap-3">
-          <textarea
-            value={newMessage}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            rows={2}
-            disabled={sending}
-          />
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => sendMessage(false)}
-              disabled={sending || !newMessage.trim()}
-              className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              <PaperAirplaneIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">Send</span>
-            </button>
-            <button
-              onClick={() => sendMessage(true)}
-              disabled={sending || !newMessage.trim()}
-              className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-            >
-              <BellIcon className="w-5 h-5" />
-              <span className="hidden sm:inline">Notify</span>
-            </button>
-          </div>
+      {/* Input or Closed Banner */}
+{isClosed ? (
+  <div className="px-6 py-8 border-t border-slate-200 bg-slate-50">
+    <div className="max-w-md mx-auto text-center space-y-4">
+      <div className="flex justify-center">
+        <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center">
+          <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
         </div>
       </div>
+      <div>
+        <h3 className="text-lg font-semibold text-slate-900 mb-2">
+          Chat Closed
+        </h3>
+        <p className="text-sm text-slate-600">
+          {closedReason || 'This conversation was auto-closed 48 hours after order completion.'}
+        </p>
+      </div>
+      <div className="pt-4">
+        <button
+          onClick={() => window.location.href = '/support'}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+          </svg>
+          Contact Support
+        </button>
+      </div>
+    </div>
+  </div>
+) : (
+  <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+    <div className="flex gap-3">
+      <textarea
+        value={newMessage}
+        onChange={handleInputChange}
+        onKeyPress={handleKeyPress}
+        placeholder="Type your message..."
+        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        rows={2}
+        disabled={sending}
+      />
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={() => sendMessage(false)}
+          disabled={sending || !newMessage.trim()}
+          className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+        >
+          <PaperAirplaneIcon className="w-5 h-5" />
+          <span className="hidden sm:inline">Send</span>
+        </button>
+        <button
+          onClick={() => sendMessage(true)}
+          disabled={sending || !newMessage.trim()}
+          className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+        >
+          <BellIcon className="w-5 h-5" />
+          <span className="hidden sm:inline">Notify</span>
+        </button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 }

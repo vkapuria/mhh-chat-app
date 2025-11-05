@@ -44,6 +44,8 @@ async function conversationsHandler(request: NextRequest) {
       expert_id,
       status,
       updated_at,
+      chat_status,
+      chat_closed_at,
       experts:expert_id(email)
     `);
 
@@ -186,28 +188,45 @@ const conversationsWithData = orders.map((order: any) => {
   // Extract expert email from embedded relation
   const expertEmail = order.experts?.email || null;
 
-  return {
-    id: order.id,
-    title: order.title,
-    task_code: order.task_code,
-    order_date: order.order_date,
-    amount: order.amount,
-    expert_fee: order.expert_fee,
-    customer_name: order.customer_name,
-    customer_display_name: order.customer_display_name,
-    customer_email: order.customer_email,
-    expert_name: order.expert_name,
-    expert_display_name: order.expert_display_name,
-    expert_email: expertEmail,
-    status: order.status,
-    updated_at: order.updated_at,
-    lastMessage: lastMessage ? {
-      message_content: lastMessage.message_content.substring(0, 50),
-      created_at: lastMessage.created_at,
-      sender_id: lastMessage.sender_id,
-    } : null,
-    unreadCount,
-  };
+  // Classify conversation status
+const hasMessages = !!lastMessage;
+const isOrderActive = !['Completed', 'Cancelled', 'Refunded'].includes(order.status);
+const isChatClosed = order.chat_status === 'closed';
+
+let conversationStatus: 'active' | 'ready' | 'closed';
+if (isChatClosed || !isOrderActive) {
+  conversationStatus = 'closed';
+} else if (hasMessages && isOrderActive) {
+  conversationStatus = 'active';
+} else {
+  conversationStatus = 'ready';
+}
+
+return {
+  id: order.id,
+  title: order.title,
+  task_code: order.task_code,
+  order_date: order.order_date,
+  amount: order.amount,
+  expert_fee: order.expert_fee,
+  customer_name: order.customer_name,
+  customer_display_name: order.customer_display_name,
+  customer_email: order.customer_email,
+  expert_name: order.expert_name,
+  expert_display_name: order.expert_display_name,
+  expert_email: expertEmail,
+  status: order.status,
+  updated_at: order.updated_at,
+  chat_status: order.chat_status,
+  chat_closed_at: order.chat_closed_at,
+  conversation_status: conversationStatus,
+  lastMessage: lastMessage ? {
+    message_content: lastMessage.message_content.substring(0, 50),
+    created_at: lastMessage.created_at,
+    sender_id: lastMessage.sender_id,
+  } : null,
+  unreadCount,
+};
 });
 
     perfLogger.end('conversations.enrichment', {

@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { ContactSupportModal } from '@/components/support/ContactSupportModal';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { CheckCircleIcon, ClockIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
 
 interface OrderCardProps {
   order: {
@@ -23,6 +24,7 @@ interface OrderCardProps {
     expert_id?: string;
     created_at: string;
     updated_at: string;
+    completed_at?: string;  // ← ADD THIS LINE
     rating?: {
       average?: number;
       count?: number;
@@ -83,23 +85,36 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
   const canChat = order.expert_id && order.status !== 'Completed' && order.status !== 'Cancelled' && order.status !== 'Refunded';
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+    <div className="relative bg-white rounded-lg shadow-sm border border-slate-200 p-6 pt-7 mt-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+      {/* Status Badge - Top Center Tab */}
+      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+      <Badge className={`flex items-center gap-1.5 px-3 py-1.5 shadow-md ${getStatusColor(order.status)}`}>
+        {order.status === 'Completed' && (
+          <CheckCircleIcon className="w-5 h-5" />
+        )}
+        {(order.status === 'In Progress' || order.status === 'Assigned') && (
+          <ClockIcon className="w-5 h-5" />
+        )}
+        {order.status === 'Revision' && (
+          <ArrowPathIcon className="w-5 h-5" />
+        )}
+        {order.status === 'Pending' && (
+          <ClockIcon className="w-5 h-5" />
+        )}
+          <span className="font-semibold">{getStatusText(order.status)}</span>
+        </Badge>
+      </div>
+  
       {/* Top Section */}
       <div>
-        <div className="flex items-start justify-between gap-4 mb-4">
-          {/* Title & Task Code */}
-          <div className="flex-1 min-w-0"> 
-            <h3 className="text-lg font-semibold text-slate-900 truncate" title={order.title}>
-              {order.title}
-            </h3>
-            <p className="text-sm text-slate-500 truncate">
-              {order.id}
-            </p>
-          </div>
-          {/* Badge */}
-          <Badge className={`flex-shrink-0 ${getStatusColor(order.status)}`}>
-            {getStatusText(order.status)}
-          </Badge>
+        {/* Title & Task Code - Now Full Width */}
+        <div className="mb-4 text-center">
+          <h4 className="text-base font-semibold text-slate-900 truncate" title={order.title}>
+            {order.title}
+          </h4>
+          <p className="text-sm text-slate-500 truncate">
+            {order.id}
+          </p>
         </div>
 
         {/* Order Details */}
@@ -124,10 +139,12 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
             <div className="flex items-center text-sm gap-3">
               {order.rating.average ? (
                 <>
-                  <img src="/icons/like.svg" alt="Rating" className="w-6 h-6 flex-shrink-0" />
+                  <img src="/icons/review.svg" alt="Rating" className="w-6 h-6 flex-shrink-0" />
                   <span className="font-medium text-slate-600">Rating:</span>
-                  <span className="font-semibold text-amber-600">{order.rating.average}</span>
-                  <img src="/icons/favourite.svg" alt="Star" className="w-4 h-4" />
+                  <div className="flex items-center gap-1">
+                    <span className="font-semibold text-amber-600">{order.rating.average}</span>
+                    <img src="/icons/favourite.svg" alt="Star" className="w-4 h-4" />
+                  </div>
                 </>
               ) : order.rating.status === 'pending' ? (
                 <>
@@ -155,11 +172,29 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
                 : `$${order.amount}`}
             </span>
           </div>
-          <div className="flex items-center text-sm text-slate-600 gap-3">
-            <img src="/icons/calendar-table.svg" alt="Date" className="w-6 h-6 flex-shrink-0" />
-            <span className="font-medium">Ordered:</span>
-            <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
-          </div>
+          {/* Ordered Date */}
+<div className="flex items-center text-sm text-slate-600 gap-3">
+  <img src="/icons/calendar-table.svg" alt="Date" className="w-6 h-6 flex-shrink-0" />
+  <span className="font-medium">Ordered:</span>
+  <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
+</div>
+
+{/* Completed Date */}
+{order.status === 'Completed' && order.completed_at ? (
+  <div className="flex items-center text-sm text-slate-600 gap-3">
+    <img src="/icons/like.svg" alt="Completed" className="w-6 h-6 flex-shrink-0" />
+    <span className="font-medium">Completed:</span>
+    <span className="text-green-700 font-semibold">
+      {format(new Date(order.completed_at), 'MMM d, yyyy')}
+    </span>
+  </div>
+) : order.status !== 'Completed' && order.status !== 'Cancelled' && order.status !== 'Refunded' ? (
+  <div className="flex items-center text-sm text-slate-400 gap-3">
+    <img src="/icons/calendar-table.svg" alt="Not Completed" className="w-6 h-6 flex-shrink-0 opacity-50" />
+    <span className="font-medium">Completed:</span>
+    <span className="italic">Not completed yet</span>
+  </div>
+) : null}
         </div>
       </div>
 

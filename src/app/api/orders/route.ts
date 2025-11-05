@@ -39,6 +39,7 @@ async function ordersHandler(request: NextRequest) {
       status,
       deadline,
       created_at,
+      completed_at,
       updated_at,
       customer_name,
       customer_display_name,

@@ -99,8 +99,8 @@ export default function PortalLayout({
     <Image
       src="/icons/mhh-logo.png"
       alt="Homework Hub"
-      width={100}
-      height={54}
+      width={80}
+      height={44}
       className="object-contain"
     />
     

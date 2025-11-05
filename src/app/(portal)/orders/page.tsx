@@ -8,6 +8,7 @@ import { OrderCard } from '@/components/orders/OrderCard';
 import { OrderFilters } from '@/components/orders/OrderFilters';
 import { OrderSearch } from '@/components/orders/OrderSearch';
 import { OrdersSkeleton } from '@/components/loaders/OrdersSkeleton';
+import { OrdersGroupedView } from '@/components/orders/OrdersGroupedView';
 
 interface Order {
   id: string;
@@ -173,29 +174,24 @@ export default function OrdersPage() {
           />
         </div>
 
-        {/* Orders Grid */}
-        {filteredOrders.length === 0 ? (
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
-            <p className="text-slate-500">
-              {searchQuery
-                ? 'No orders found matching your search'
-                : activeFilter === 'all'
-                ? 'No orders yet'
-                : `No ${activeFilter} orders`}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredOrders.map((order) => (
-              <OrderCard
-                key={order.id}
-                order={order}
-                userType={userType}
-                unreadCount={unreadCounts[order.id] || 0}
-              />
-            ))}
-          </div>
-        )}
+        {/* Orders Grouped by Month */}
+{filteredOrders.length === 0 ? (
+  <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
+    <p className="text-slate-500">
+      {searchQuery
+        ? 'No orders found matching your search'
+        : activeFilter === 'all'
+        ? 'No orders yet'
+        : `No ${activeFilter} orders`}
+    </p>
+  </div>
+) : (
+  <OrdersGroupedView
+    orders={filteredOrders}
+    userType={userType}
+    unreadCounts={unreadCounts}
+  />
+)}
       </div>
     </div>
   );

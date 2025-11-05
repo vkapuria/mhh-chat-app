@@ -31,7 +31,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       show: true,
     },
     {
-      name: isCustomer ? 'My Orders' : 'My Assignments',
+      name: isCustomer ? 'Orders' : 'Tasks',
       href: '/orders',
       icon: ShoppingBagIcon,
       show: true,

@@ -5,11 +5,11 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { supabase } from '@/lib/supabase';
 import { fetcher } from '@/lib/fetcher';
-import { ConversationList } from '@/components/messages/ConversationList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
 import { MessagesSkeleton } from '@/components/loaders/MessagesSkeleton';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import PullToRefresh from 'react-pull-to-refresh';
+import { ConversationListGrouped } from '@/components/messages/ConversationListGrouped';
 
 interface Conversation {
   id: string;
@@ -26,6 +26,10 @@ interface Conversation {
   expert_email?: string;
   expert_user_id?: string;
   customer_user_id?: string;
+  status?: string;
+  chat_status?: string;
+  chat_closed_at?: string;
+  conversation_status?: 'active' | 'ready' | 'closed';
   lastMessage?: {
     sender_id: string;
     message_content: string;
@@ -130,17 +134,17 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-full flex">
+    <div className="h-full min-h-0 flex">
       {/* Conversation List - Hidden on mobile when chat is selected */}
       <div className={`
-        w-full md:w-80 border-r border-slate-200 bg-white flex flex-col
+        w-full md:w-80 h-full border-r border-slate-200 bg-white flex flex-col min-h-0
         ${selectedOrderId ? 'hidden md:flex' : 'flex'}
       `}>
         <div className="p-4 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">Conversations</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Your Conversations</h2>
           <p className="text-sm text-slate-500">
-            {conversations.filter(c => c.lastMessage).length} active, {conversations.filter(c => !c.lastMessage).length} pending
-          </p>
+  {conversations.filter(c => c.conversation_status === 'active').length} active • {conversations.filter(c => c.conversation_status === 'ready').length} ready to start
+</p>
           {!selectedOrderId && (
             <p className="text-xs text-slate-400 mt-2">
               👇 Tap any order to start chatting
@@ -149,9 +153,10 @@ export default function MessagesPage() {
         </div>
         <PullToRefresh
           onRefresh={handleRefresh}
-          className="flex-1 overflow-hidden"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
+          style={{ WebkitOverflowScrolling: 'touch', touchAction: 'pan-y' }}
         >
-          <ConversationList
+          <ConversationListGrouped
             conversations={conversations}
             userType={userType}
             activeOrderId={selectedOrderId || undefined}
@@ -189,26 +194,40 @@ export default function MessagesPage() {
 
             {/* Chat Window */}
             <div className="flex-1 overflow-hidden">
-              <ChatWindow
-                orderId={selectedOrderId}
-                orderTitle={selectedConversation.title}
-                currentUserType={userType}
-                currentUserId={userId}
-                otherPartyName={otherPartyName || 'Unknown'}
-                otherPartyEmail={otherPartyEmail}
-                otherPartyId={otherPartyId}
-              />
+            <ChatWindow
+              orderId={selectedOrderId}
+              orderTitle={selectedConversation.title}
+              currentUserType={userType}
+              currentUserId={userId}
+              otherPartyName={otherPartyName || 'Unknown'}
+              otherPartyEmail={otherPartyEmail}
+              otherPartyId={otherPartyId}
+              isClosed={selectedConversation.conversation_status === 'closed'}
+              closedReason={selectedConversation.chat_closed_at 
+                ? `Chat auto-closed on ${new Date(selectedConversation.chat_closed_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`
+                : undefined
+              }
+            />
             </div>
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center px-4">
-              <p className="text-slate-400 text-sm mb-2">No conversation selected</p>
-              <p className="text-slate-600 text-lg">
-                👇 Choose an order below to start chatting
-              </p>
-            </div>
-          </div>
+          <div className="flex items-center justify-center h-full w-full">
+  <div className="text-center px-4 py-8">
+    <div className="bg-white rounded-full w-40 h-40 md:w-40 md:h-40 mx-auto mb-6 flex items-center justify-center shadow-lg">
+      <img 
+        src="/icons/mike.svg" 
+        alt="Messages" 
+        className="w-24 h-24 md:w-24 md:h-24"
+      />
+    </div>
+    <h3 className="text-2xl font-bold text-slate-800 mb-2">
+      Start Chatting
+    </h3>
+    <p className="text-slate-600">
+      Choose an order to begin your conversation
+    </p>
+  </div>
+</div>
         )}
       </div>
     </div>
