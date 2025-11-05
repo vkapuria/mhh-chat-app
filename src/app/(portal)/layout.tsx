@@ -9,7 +9,7 @@ import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Bars3Icon } from '@heroicons/react/24/outline';
-
+import Image from 'next/image';
 export default function PortalLayout({
   children,
 }: {
@@ -92,22 +92,35 @@ export default function PortalLayout({
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header with Hamburger */}
-          <div className="md:hidden bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3">
-            <button
-              onClick={() => setMobileMenuOpen(true)}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              aria-label="Open menu"
-            >
-              <Bars3Icon className="w-6 h-6 text-slate-700" />
-            </button>
-            <div>
-              <h1 className="font-bold text-lg">MyHomeworkHelp</h1>
-              <p className="text-xs text-slate-500">
-                {user.user_type === 'customer' ? 'Customer Portal' : 'Expert Portal'}
-              </p>
-            </div>
-          </div>
+          {/* Mobile Header - Logo Left | Title Center | Burger Right */}
+<header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+  <div className="flex items-center justify-between px-4 py-3 relative">
+    {/* Logo - Left */}
+    <Image
+      src="/icons/mhh-logo.png"
+      alt="Homework Hub"
+      width={100}
+      height={54}
+      className="object-contain"
+    />
+    
+    {/* Title - Centered (absolute positioning) */}
+    <div className="absolute left-1/2 transform -translate-x-1/2">
+      <h1 className="font-bold text-lg text-slate-900 whitespace-nowrap">
+        Homework Hub
+      </h1>
+    </div>
+    
+    {/* Burger Menu - Right */}
+    <button 
+      onClick={() => setMobileMenuOpen(true)}
+      className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-10"
+      aria-label="Open menu"
+    >
+      <Bars3Icon className="w-6 h-6 text-slate-700" />
+    </button>
+  </div>
+</header>
 
           {/* Desktop Header */}
           <div className="hidden md:block">

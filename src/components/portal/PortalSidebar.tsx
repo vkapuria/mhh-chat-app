@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { 
   HomeIcon, 
@@ -66,12 +67,20 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
     <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen">
       {/* Logo/Brand */}
       <div className="p-6 border-b border-slate-200">
-        <h1 className="text-xl font-bold text-slate-900">
-          MyHomeworkHelp
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          {isCustomer ? 'Customer Portal' : 'Expert Portal'}
-        </p>
+        <div className="flex flex-col items-start gap-3">
+          <Image
+            src="/icons/mhh-logo.png"
+            alt="Homework Hub Logo"
+            width={110}
+            height={54}
+            className="object-contain"
+          />
+          <div>
+            <h1 className="text-xl font-bold text-slate-900">
+              Homework Hub
+            </h1>
+          </div>
+        </div>
       </div>
 
       {/* User Info */}

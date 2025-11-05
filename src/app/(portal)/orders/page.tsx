@@ -7,6 +7,7 @@ import { fetcher } from '@/lib/fetcher';
 import { OrderCard } from '@/components/orders/OrderCard';
 import { OrderFilters } from '@/components/orders/OrderFilters';
 import { OrderSearch } from '@/components/orders/OrderSearch';
+import { OrdersSkeleton } from '@/components/loaders/OrdersSkeleton';
 
 interface Order {
   id: string;
@@ -38,16 +39,16 @@ export default function OrdersPage() {
 
   // ✨ SWR for orders with USER-SPECIFIC caching
   const { data, error, isLoading } = useSWR<OrdersResponse>(
-  userId ? ['/api/orders', userId] : null,
-  ([url]) => fetcher(url),
-  {
-    refreshInterval: 60000, // 60s instead of 30s
-    revalidateOnFocus: false, // Don't refetch when returning to tab
-    revalidateOnReconnect: false, // Don't refetch on reconnect
-    dedupingInterval: 15000, // 15s dedup window (up from 5s)
-    revalidateOnMount: true, // Still fetch on first mount
-  }
-);
+    userId ? ['/api/orders', userId] : null,
+    ([url]) => fetcher(url),
+    {
+      refreshInterval: 60000, // 60s instead of 30s
+      revalidateOnFocus: false, // Don't refetch when returning to tab
+      revalidateOnReconnect: false, // Don't refetch on reconnect
+      dedupingInterval: 15000, // 15s dedup window (up from 5s)
+      revalidateOnMount: true, // Still fetch on first mount
+    }
+  );
 
   const orders = data?.orders || [];
 
@@ -128,23 +129,9 @@ export default function OrdersPage() {
     completed: orders.filter(o => o.status === 'Completed').length,
   }), [orders]);
 
-  // Loading state
+  // Loading state with beautiful skeleton
   if (isLoading || !data) {
-    return (
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse space-y-4">
-            <div className="h-8 bg-slate-200 rounded w-1/4"></div>
-            <div className="h-12 bg-slate-200 rounded"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="h-64 bg-slate-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <OrdersSkeleton />;
   }
 
   // Error state

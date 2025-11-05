@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { fetcher } from '@/lib/fetcher';
 import { ConversationList } from '@/components/messages/ConversationList';
 import { ChatWindow } from '@/components/messages/ChatWindow';
+import { MessagesSkeleton } from '@/components/loaders/MessagesSkeleton';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import PullToRefresh from 'react-pull-to-refresh';
 
@@ -83,7 +84,7 @@ export default function MessagesPage() {
 
   // ✨ Pull to refresh handler
   const handleRefresh = async () => {
-    await mutate(); // Manually trigger SWR revalidation
+    await mutate();
   };
 
   const selectedConversation = conversations.find(c => c.id === selectedOrderId);
@@ -102,20 +103,12 @@ export default function MessagesPage() {
 
   const handleBackToList = () => {
     setSelectedOrderId(null);
-    // Update URL without orderId
     router.push('/messages');
   };
 
-  // Loading state
+  // Loading state with beautiful skeleton
   if (isLoading || !data) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-slate-600">Loading conversations...</p>
-        </div>
-      </div>
-    );
+    return <MessagesSkeleton />;
   }
 
   // Error state

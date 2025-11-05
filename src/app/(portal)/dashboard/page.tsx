@@ -6,10 +6,10 @@ import { fetcher } from '@/lib/fetcher';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { RecentActivity } from '@/components/dashboard/RecentActivity';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { DashboardSkeleton } from '@/components/loaders/DashboardSkeleton';
 import {
   ShoppingBagIcon,
   CheckCircleIcon,
-  ClockIcon,
   ChatBubbleLeftRightIcon,
   PencilIcon
 } from '@heroicons/react/24/outline';
@@ -27,18 +27,16 @@ interface DashboardData {
 
 export default function DashboardPage() {
   const [userType, setUserType] = useState<'customer' | 'expert'>('customer');
-
-  // Get userId first
   const [userId, setUserId] = useState('');
 
-  // Get user ID on mount
+  // Get user type and userId on mount
   useEffect(() => {
     async function getUserInfo() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         const type = session.user.user_metadata?.user_type || 'customer';
         setUserType(type);
-        setUserId(session.user.id); // Add this line
+        setUserId(session.user.id);
       }
     }
     getUserInfo();
@@ -46,46 +44,21 @@ export default function DashboardPage() {
 
   // ✨ SWR with USER-SPECIFIC caching
   const { data, error, isLoading } = useSWR<DashboardData>(
-  userId ? ['/api/dashboard', userId] : null,
-  ([url]) => fetcher(url),
-  {
-    refreshInterval: 60000, // 60s instead of 30s
-    revalidateOnFocus: false, // Don't refetch on focus
-    revalidateOnReconnect: false, // Don't refetch on reconnect
-    dedupingInterval: 15000, // 15s dedup window
-    revalidateOnMount: true, // Still fetch on first mount
-    fallbackData: undefined,
-  }
-);
-
-  // Get user type on mount
-  useEffect(() => {
-    async function getUserType() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const type = session.user.user_metadata?.user_type || 'customer';
-        setUserType(type);
-      }
+    userId ? ['/api/dashboard', userId] : null,
+    ([url]) => fetcher(url),
+    {
+      refreshInterval: 60000, // 60s instead of 30s
+      revalidateOnFocus: false, // Don't refetch on focus
+      revalidateOnReconnect: false, // Don't refetch on reconnect
+      dedupingInterval: 15000, // 15s dedup window
+      revalidateOnMount: true, // Still fetch on first mount
+      fallbackData: undefined,
     }
-    getUserType();
-  }, []);
+  );
 
-  // Loading state
+  // Loading state with beautiful skeleton
   if (isLoading || !data) {
-    return (
-      <div className="p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-slate-200 rounded w-1/4 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-32 bg-slate-200 rounded"></div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   // Error state
