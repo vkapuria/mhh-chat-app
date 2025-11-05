@@ -29,21 +29,23 @@ async function conversationsHandler(request: NextRequest) {
     const expertId = user.user_metadata?.expert_id;
 
     // ✅ OPTIMIZATION 4+6: Lean select + pagination + composite index
-let ordersQuery = supabase.from('orders').select(`
-  id,
-  title,
-  task_code,
-  order_date,
-  customer_name,
-  customer_display_name,
-  customer_email,
-  expert_name,
-  expert_display_name,
-  expert_id,
-  status,
-  updated_at,
-  experts:expert_id(email)
-`); // Added order_date back for UI, removed: amount, expert_fee
+    let ordersQuery = supabase.from('orders').select(`
+      id,
+      title,
+      task_code,
+      order_date,
+      amount,
+      expert_fee,
+      customer_name,
+      customer_display_name,
+      customer_email,
+      expert_name,
+      expert_display_name,
+      expert_id,
+      status,
+      updated_at,
+      experts:expert_id(email)
+    `);
 
 if (userType === 'customer') {
   ordersQuery = ordersQuery.eq('customer_email', user.email);
@@ -185,26 +187,27 @@ const conversationsWithData = orders.map((order: any) => {
   const expertEmail = order.experts?.email || null;
 
   return {
-  id: order.id,
-  title: order.title,
-  task_code: order.task_code,
-  order_date: order.order_date, // Added back for UI
-  customer_name: order.customer_name,
-  customer_display_name: order.customer_display_name,
-  customer_email: order.customer_email,
-  expert_name: order.expert_name,
-  expert_display_name: order.expert_display_name,
-  expert_email: expertEmail,
-  status: order.status,
-  updated_at: order.updated_at,
-  // Minimal lastMessage (50 chars only)
-  lastMessage: lastMessage ? {
-    message_content: lastMessage.message_content.substring(0, 50), // 50 chars
-    created_at: lastMessage.created_at,
-    sender_id: lastMessage.sender_id,
-  } : null,
-  unreadCount,
-};
+    id: order.id,
+    title: order.title,
+    task_code: order.task_code,
+    order_date: order.order_date,
+    amount: order.amount,
+    expert_fee: order.expert_fee,
+    customer_name: order.customer_name,
+    customer_display_name: order.customer_display_name,
+    customer_email: order.customer_email,
+    expert_name: order.expert_name,
+    expert_display_name: order.expert_display_name,
+    expert_email: expertEmail,
+    status: order.status,
+    updated_at: order.updated_at,
+    lastMessage: lastMessage ? {
+      message_content: lastMessage.message_content.substring(0, 50),
+      created_at: lastMessage.created_at,
+      sender_id: lastMessage.sender_id,
+    } : null,
+    unreadCount,
+  };
 });
 
     perfLogger.end('conversations.enrichment', {
