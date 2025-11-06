@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketStatusUpdateEmail } from '@/lib/email';
+import { formatTicketNumber } from '@/lib/ticket-utils';
 
 async function ticketDetailHandler(
   request: NextRequest,
@@ -127,7 +128,7 @@ async function ticketDetailHandler(
         
         const emailHtml = generateTicketStatusUpdateEmail({
           recipientName: ticket.user_display_name,
-          ticketId: ticket.id.substring(0, 8).toUpperCase(),
+          ticketId: formatTicketNumber(ticket.id),
           orderId: ticket.order_id,
           issueType: ticket.issue_type,
           oldStatus: oldTicket.status,

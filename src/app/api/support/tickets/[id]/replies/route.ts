@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketReplyEmail } from '@/lib/email';
+import { formatTicketNumber } from '@/lib/ticket-utils';
+
 
 async function repliesHandler(
   request: NextRequest,
@@ -72,6 +74,12 @@ async function repliesHandler(
         return NextResponse.json({ error: insertError.message }, { status: 500 });
       }
 
+      // Update ticket's updated_at timestamp
+      await supabase
+      .from('support_tickets')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', ticketId);
+
       // Fetch ticket details for email notification
       const { data: ticket } = await supabase
         .from('support_tickets')
@@ -85,7 +93,7 @@ async function repliesHandler(
         
         const emailHtml = generateTicketReplyEmail({
           recipientName: ticket.user_display_name,
-          ticketId: ticket.id.substring(0, 8).toUpperCase(),
+          ticketId: formatTicketNumber(ticket.id),
           orderId: ticket.order_id,
           issueType: ticket.issue_type,
           replyMessage: message.trim(),

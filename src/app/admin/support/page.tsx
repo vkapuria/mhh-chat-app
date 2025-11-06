@@ -8,6 +8,7 @@ import { TicketList } from '@/components/admin/TicketList';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Clock, AlertCircle, Inbox } from 'lucide-react';
+import { formatTicketNumber } from '@/lib/ticket-utils';
 
 type StatusFilter = 'all' | 'submitted' | 'in_progress' | 'resolved';
 

@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { formatTicketNumber } from './ticket-utils';
 
 // Validate environment variable
 if (!process.env.RESEND_API_KEY) {
@@ -34,7 +35,7 @@ export async function sendEmail({ to, subject, html, from, replyTo }: SendEmailP
 
     // Add reply-to if provided
     if (replyTo) {
-      emailPayload.reply_to = replyTo;
+      emailPayload.replyTo = replyTo;
     }
 
     const { data, error } = await resend.emails.send(emailPayload);

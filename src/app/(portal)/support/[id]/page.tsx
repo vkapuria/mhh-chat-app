@@ -4,19 +4,17 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { SupportTicket } from '@/types/support';
 import { TicketStatusBadge } from '@/components/support/TicketStatusBadge';
-import { TicketReplyForm } from '@/components/admin/TicketReplyForm';
-import { TicketStatusUpdater } from '@/components/admin/TicketStatusUpdater';
+import { CustomerTicketReplyForm } from '@/components/support/TicketReplyForm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Calendar, Package, User, Mail, DollarSign } from 'lucide-react';
+import { ArrowLeft, Calendar, Package, Mail, DollarSign } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
-import { formatTicketNumber } from '@/lib/ticket-utils';
 
-export default function AdminTicketDetailPage() {
+export default function CustomerTicketDetailPage() {
   const params = useParams();
   const router = useRouter();
   const ticketId = params.id as string;
@@ -33,8 +31,8 @@ export default function AdminTicketDetailPage() {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        toast.error('Authentication required');
-        router.push('/admin');
+        toast.error('Please log in to view ticket');
+        router.push('/login');
         return;
       }
 
@@ -50,21 +48,20 @@ export default function AdminTicketDetailPage() {
         setTicket(result.ticket);
       } else {
         toast.error('Failed to load ticket');
+        router.push('/support');
       }
     } catch (error) {
       console.error('Fetch ticket error:', error);
       toast.error('Something went wrong');
+      router.push('/support');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleStatusUpdate = async (newStatus: 'submitted' | 'in_progress' | 'resolved') => {
-    await fetchTicket(); // Refresh ticket data
-  };
-
   const handleReplySubmit = async () => {
     await fetchTicket(); // Refresh to show new reply
+    toast.success('Reply sent successfully!');
   };
 
   if (loading) {
@@ -80,34 +77,36 @@ export default function AdminTicketDetailPage() {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <p className="text-red-600 font-semibold">Ticket not found</p>
-          <Button onClick={() => router.push('/admin/support')} className="mt-4">
-            Back to Tickets
+          <Button onClick={() => router.push('/support')} className="mt-4">
+            Back to Support
           </Button>
         </div>
       </div>
     );
   }
 
+  const ticketNumber = `TKT-${ticket.id.substring(0, 8).toUpperCase()}`;
+
   return (
     <div className="max-w-5xl mx-auto">
       {/* Back Button */}
       <Button
         variant="ghost"
-        onClick={() => router.push('/admin/support')}
+        onClick={() => router.push('/support')}
         className="mb-4"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Tickets
+        Back to Support
       </Button>
 
       {/* Header */}
       <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-2">
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-2xl font-bold text-slate-900">Support Ticket</h1>
               <span className="text-sm font-mono text-slate-500 bg-slate-100 px-3 py-1 rounded border">
-              {formatTicketNumber(ticket.id)}
+                {ticketNumber}
               </span>
             </div>
             <p className="text-sm text-slate-600">
@@ -116,13 +115,6 @@ export default function AdminTicketDetailPage() {
           </div>
           <TicketStatusBadge status={ticket.status} />
         </div>
-
-        {/* Status Updater */}
-        <TicketStatusUpdater
-          ticketId={ticket.id}
-          currentStatus={ticket.status}
-          onStatusUpdate={handleStatusUpdate}
-        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -130,9 +122,7 @@ export default function AdminTicketDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Issue Details */}
           <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-              Issue Type
-            </h3>
+            <h3 className="font-semibold text-slate-900 mb-3">Issue Type</h3>
             <p className="text-sm text-slate-700 bg-blue-50 px-4 py-2 rounded border border-blue-100">
               {ticket.issue_type}
             </p>
@@ -140,13 +130,10 @@ export default function AdminTicketDetailPage() {
 
           {/* Original Message */}
           <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Original Request</h3>
+            <h3 className="font-semibold text-slate-900 mb-4">Your Request</h3>
             <div className="bg-slate-50 rounded-lg p-4 border-l-4 border-blue-500">
               <div className="flex items-center gap-2 text-xs text-slate-600 mb-3">
-                <User className="w-4 h-4" />
-                <span className="font-semibold text-slate-900">
-                  {ticket.user_display_name} ({ticket.user_type})
-                </span>
+                <span className="font-semibold text-slate-900">You</span>
                 <span>•</span>
                 <Calendar className="w-3 h-3" />
                 <span>{format(new Date(ticket.created_at), 'PPp')}</span>
@@ -157,97 +144,75 @@ export default function AdminTicketDetailPage() {
             </div>
           </Card>
 
-          {/* Replies */}
+          {/* Conversation History */}
           {ticket.replies && ticket.replies.length > 0 && (
-  <Card className="p-6">
-    <h3 className="font-semibold text-slate-900 mb-4">
-      Response History ({ticket.replies.length})
-    </h3>
-    <ScrollArea className="max-h-96">
-      <div className="space-y-4 pr-4">
-        {ticket.replies.map((reply: any) => {
-          const isUserReply = reply.reply_type === 'user';
-          
-          return (
-            <div
-              key={reply.id}
-              className={`rounded-lg p-4 border-l-4 ${
-                isUserReply
-                  ? 'bg-blue-50 border-blue-500'
-                  : 'bg-green-50 border-green-500'
-              }`}
-            >
-              <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
-                <span className={`font-semibold ${
-                  isUserReply ? 'text-blue-700' : 'text-green-700'
-                }`}>
-                  {reply.admin_name} {isUserReply ? '(Customer)' : '(Support Team)'}
-                </span>
-                <span>•</span>
-                <Calendar className="w-3 h-3" />
-                <span>{format(new Date(reply.created_at), 'PPp')}</span>
-              </div>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                {reply.message}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-    </ScrollArea>
-  </Card>
-)}
-
-          {/* Reply Form */}
-          {ticket.status !== 'resolved' && (
             <Card className="p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Send Response</h3>
-              <TicketReplyForm ticketId={ticket.id} onReplySubmit={handleReplySubmit} />
+              <h3 className="font-semibold text-slate-900 mb-4">
+                Conversation ({ticket.replies.length})
+              </h3>
+              <ScrollArea className="max-h-96">
+                <div className="space-y-4 pr-4">
+                  {ticket.replies.map((reply: any) => {
+                    const isCustomerReply = reply.reply_type === 'user';
+                    
+                    return (
+                      <div
+                        key={reply.id}
+                        className={`rounded-lg p-4 border-l-4 ${
+                          isCustomerReply
+                            ? 'bg-blue-50 border-blue-500'
+                            : 'bg-green-50 border-green-500'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
+                          <span className={`font-semibold ${
+                            isCustomerReply ? 'text-blue-700' : 'text-green-700'
+                          }`}>
+                            {isCustomerReply ? 'You' : `${reply.admin_name} (Support Team)`}
+                          </span>
+                          <span>•</span>
+                          <Calendar className="w-3 h-3" />
+                          <span>{format(new Date(reply.created_at), 'PPp')}</span>
+                        </div>
+                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                          {reply.message}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </ScrollArea>
             </Card>
           )}
 
-          {ticket.status === 'resolved' && (
-            <Card className="p-6 bg-green-50 border-green-200">
-              <p className="text-center text-green-700 font-medium">
-                ✓ This ticket has been resolved
+          {/* Reply Form */}
+          {ticket.status !== 'resolved' ? (
+            <Card className="p-6">
+              <h3 className="font-semibold text-slate-900 mb-4">Add Your Reply</h3>
+              <p className="text-sm text-slate-600 mb-4">
+                💡 <strong>Tip:</strong> You can also reply directly to our email notifications!
               </p>
+              <CustomerTicketReplyForm 
+                ticketId={ticket.id} 
+                onReplySubmit={handleReplySubmit} 
+              />
+            </Card>
+          ) : (
+            <Card className="p-6 bg-green-50 border-green-200">
+              <div className="text-center">
+                <p className="text-green-700 font-medium mb-2">
+                  ✓ This ticket has been resolved
+                </p>
+                <p className="text-sm text-green-600">
+                  Need more help? You can submit a new ticket anytime.
+                </p>
+              </div>
             </Card>
           )}
         </div>
 
-        {/* Sidebar - Context */}
+        {/* Sidebar - Order Info */}
         <div className="space-y-6">
-          {/* User Info */}
-          <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">User Information</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-start gap-2">
-                <User className="w-4 h-4 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-slate-600">Name</p>
-                  <p className="font-medium text-slate-900">{ticket.user_display_name}</p>
-                  <p className="text-xs text-slate-500">({ticket.user_name})</p>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-start gap-2">
-                <Mail className="w-4 h-4 text-slate-500 mt-0.5" />
-                <div>
-                  <p className="text-slate-600">Email</p>
-                  <p className="font-medium text-slate-900 break-all">{ticket.user_email}</p>
-                </div>
-              </div>
-              <Separator />
-              <div className="flex items-start gap-2">
-                <span className="text-xs text-slate-500 mt-0.5">👤</span>
-                <div>
-                  <p className="text-slate-600">Type</p>
-                  <p className="font-medium text-slate-900 capitalize">{ticket.user_type}</p>
-                </div>
-              </div>
-            </div>
-          </Card>
-
           {/* Order Info */}
           <Card className="p-6 bg-slate-50">
             <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
@@ -273,14 +238,7 @@ export default function AdminTicketDetailPage() {
                     <DollarSign className="w-4 h-4 text-slate-500" />
                     <div>
                       <p className="text-slate-600 text-xs">Amount</p>
-                      <p className="font-semibold text-slate-900">
-                        ${ticket.amount}
-                        {ticket.expert_fee && (
-                          <span className="text-xs text-slate-500 ml-2">
-                            (Expert: ₹{ticket.expert_fee})
-                          </span>
-                        )}
-                      </p>
+                      <p className="font-semibold text-slate-900">${ticket.amount}</p>
                     </div>
                   </div>
                 </>
@@ -298,7 +256,7 @@ export default function AdminTicketDetailPage() {
               </div>
               <Separator />
               <div>
-                <p className="text-slate-600 text-xs">Last Updated</p>
+                <p className="text-slate-600 text-xs">Last Activity</p>
                 <p className="text-slate-900">{format(new Date(ticket.updated_at), 'PPp')}</p>
               </div>
               {ticket.resolved_at && (
@@ -313,6 +271,18 @@ export default function AdminTicketDetailPage() {
                 </>
               )}
             </div>
+          </Card>
+
+          {/* Help Box */}
+          <Card className="p-6 bg-blue-50 border-blue-200">
+            <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+              <Mail className="w-4 h-4" />
+              Need Help?
+            </h3>
+            <p className="text-sm text-blue-800 leading-relaxed">
+              Our support team typically responds within 24 hours. For urgent matters, 
+              please email us at <strong>orders@myhomeworkhelp.com</strong>
+            </p>
           </Card>
         </div>
       </div>

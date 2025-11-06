@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { MessageSquare, Calendar, Package, User, Mail } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { formatTicketNumber } from '@/lib/ticket-utils';
 
 interface TicketListProps {
   tickets: SupportTicket[];
@@ -25,23 +26,26 @@ export function TicketList({ tickets }: TicketListProps) {
           onClick={() => router.push(`/admin/support/${ticket.id}`)}
         >
           {/* Header Row */}
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <TicketStatusBadge status={ticket.status} />
-              <Badge variant="outline" className="capitalize">
-                {ticket.user_type}
-              </Badge>
-            </div>
-            <span className="text-xs text-slate-500 flex items-center gap-1">
-              <Calendar className="w-3 h-3" />
-              {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
-            </span>
-          </div>
+<div className="flex items-start justify-between mb-4">
+  <div className="flex items-center gap-3">
+    <span className="text-xs font-mono text-slate-500 bg-slate-100 px-2 py-1 rounded border">
+      {formatTicketNumber(ticket.id)}
+    </span>
+    <TicketStatusBadge status={ticket.status} />
+    <Badge variant="outline" className="capitalize">
+      {ticket.user_type}
+    </Badge>
+  </div>
+  <span className="text-xs text-slate-500 flex items-center gap-1">
+    <Calendar className="w-3 h-3" />
+    {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}
+  </span>
+</div>
 
-          {/* Issue Type */}
-          <h3 className="font-semibold text-lg text-slate-900 mb-3">
-            {ticket.issue_type}
-          </h3>
+{/* Issue Type */}
+<h3 className="font-semibold text-lg text-slate-900 mb-3">
+  {ticket.issue_type}
+</h3>
 
           {/* User Info */}
           <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
