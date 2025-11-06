@@ -12,10 +12,11 @@ interface SendEmailParams {
   subject: string;
   html: string;
   from?: string;
+  replyTo?: string;
 }
 
 // Send email using Resend
-export async function sendEmail({ to, subject, html, from }: SendEmailParams) {
+export async function sendEmail({ to, subject, html, from, replyTo }: SendEmailParams) {
   try {
     if (!process.env.RESEND_API_KEY) {
       return { 
@@ -24,12 +25,19 @@ export async function sendEmail({ to, subject, html, from }: SendEmailParams) {
       };
     }
 
-    const { data, error } = await resend.emails.send({
+    const emailPayload: any = {
       from: from || 'MyHomeworkHelp Orders <orders@myhomeworkhelp.com>',
       to,
       subject,
       html,
-    });
+    };
+
+    // Add reply-to if provided
+    if (replyTo) {
+      emailPayload.reply_to = replyTo;
+    }
+
+    const { data, error } = await resend.emails.send(emailPayload);
 
     if (error) {
       console.error('Email send error:', error);
@@ -170,6 +178,168 @@ export function generateWelcomeEmail(params: {
           
           <div class="footer">
             <p>This is an automated message. Please do not reply to this email.</p>
+            <p>© ${new Date().getFullYear()} MyHomeworkHelp. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+// Template: Ticket reply notification
+export function generateTicketReplyEmail(params: {
+  recipientName: string;
+  ticketId: string;
+  orderId: string;
+  issueType: string;
+  replyMessage: string;
+  ticketUrl: string;
+}) {
+  const { recipientName, ticketId, orderId, issueType, replyMessage, ticketUrl } = params;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
+          .content { background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; }
+          .ticket-info { background: #f8fafc; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0; border-radius: 4px; }
+          .reply-box { background: #ecfdf5; padding: 20px; border-left: 4px solid #10b981; margin: 20px 0; border-radius: 4px; }
+          .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; color: #64748b; font-size: 12px; margin-top: 30px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2 style="margin: 0;">💬 New Response to Your Support Ticket</h2>
+          </div>
+          <div class="content">
+            <p>Hi ${recipientName},</p>
+            <p>Our support team has responded to your ticket:</p>
+            
+            <div class="ticket-info">
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Ticket ID</p>
+              <p style="margin: 5px 0 10px 0; font-family: monospace; font-weight: bold;">${ticketId}</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Order</p>
+              <p style="margin: 5px 0 10px 0; font-family: monospace;">${orderId}</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Issue Type</p>
+              <p style="margin: 5px 0 0 0;">${issueType}</p>
+            </div>
+
+            <div class="reply-box">
+              <p style="margin: 0 0 10px 0; font-weight: bold; color: #059669;">Support Team Response:</p>
+              <p style="margin: 0; white-space: pre-wrap;">${replyMessage}</p>
+            </div>
+            
+            <a href="${ticketUrl}" class="button">View Full Conversation</a>
+            
+            <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
+            💬 <strong>You can reply directly to this email</strong> to add more details to your ticket. We'll receive your message and respond as soon as possible.
+          </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} MyHomeworkHelp. All rights reserved.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+}
+
+// Template: Ticket status update notification
+export function generateTicketStatusUpdateEmail(params: {
+  recipientName: string;
+  ticketId: string;
+  orderId: string;
+  issueType: string;
+  oldStatus: string;
+  newStatus: string;
+  ticketUrl: string;
+}) {
+  const { recipientName, ticketId, orderId, issueType, oldStatus, newStatus, ticketUrl } = params;
+
+  const statusColors: Record<string, string> = {
+    submitted: '#3b82f6',
+    in_progress: '#f59e0b',
+    resolved: '#10b981',
+  };
+
+  const statusEmojis: Record<string, string> = {
+    submitted: '📝',
+    in_progress: '⚙️',
+    resolved: '✅',
+  };
+
+  const statusLabels: Record<string, string> = {
+    submitted: 'Submitted',
+    in_progress: 'In Progress',
+    resolved: 'Resolved',
+  };
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: linear-gradient(135deg, ${statusColors[newStatus]} 0%, #1e40af 100%); color: white; padding: 30px; border-radius: 8px 8px 0 0; }
+          .content { background: #ffffff; padding: 30px; border: 1px solid #e2e8f0; border-top: none; }
+          .status-change { background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }
+          .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; font-size: 14px; margin: 0 10px; }
+          .ticket-info { background: #f8fafc; padding: 15px; border-left: 4px solid #3b82f6; margin: 20px 0; border-radius: 4px; }
+          .button { display: inline-block; background: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
+          .footer { text-align: center; color: #64748b; font-size: 12px; margin-top: 30px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h2 style="margin: 0;">${statusEmojis[newStatus]} Ticket Status Updated</h2>
+          </div>
+          <div class="content">
+            <p>Hi ${recipientName},</p>
+            <p>The status of your support ticket has been updated:</p>
+            
+            <div class="status-change">
+              <span class="status-badge" style="background: #e2e8f0; color: #64748b;">
+                ${statusLabels[oldStatus]}
+              </span>
+              <span style="font-size: 24px;">→</span>
+              <span class="status-badge" style="background: ${statusColors[newStatus]}; color: white;">
+                ${statusLabels[newStatus]}
+              </span>
+            </div>
+
+            <div class="ticket-info">
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Ticket ID</p>
+              <p style="margin: 5px 0 10px 0; font-family: monospace; font-weight: bold;">${ticketId}</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Order</p>
+              <p style="margin: 5px 0 10px 0; font-family: monospace;">${orderId}</p>
+              <p style="margin: 0; font-size: 14px; color: #64748b;">Issue Type</p>
+              <p style="margin: 5px 0 0 0;">${issueType}</p>
+            </div>
+
+            ${newStatus === 'resolved' 
+              ? '<p style="background: #ecfdf5; padding: 15px; border-radius: 8px; border-left: 4px solid #10b981;"><strong style="color: #059669;">✓ Your issue has been resolved!</strong><br/>If you need further assistance, feel free to submit a new ticket.</p>'
+              : newStatus === 'in_progress'
+              ? '<p style="background: #fef3c7; padding: 15px; border-radius: 8px; border-left: 4px solid #f59e0b;"><strong style="color: #d97706;">⚙️ We\'re working on it!</strong><br/>Our team is actively addressing your issue. We\'ll update you soon.</p>'
+              : ''
+            }
+            
+            <a href="${ticketUrl}" class="button">View Ticket Details</a>
+            
+            <p style="color: #64748b; font-size: 14px; margin-top: 30px;">
+              Thank you for your patience. We're here to help!
+            </p>
+          </div>
+          <div class="footer">
             <p>© ${new Date().getFullYear()} MyHomeworkHelp. All rights reserved.</p>
           </div>
         </div>

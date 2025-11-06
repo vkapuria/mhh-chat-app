@@ -11,6 +11,7 @@ import {
   CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import { User } from '@/types/user';
+import { LifeBuoy } from 'lucide-react';
 
 interface PortalSidebarProps {
   user: User;
@@ -47,6 +48,13 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       href: '/earnings',
       icon: CurrencyDollarIcon,
       show: isExpert, // Only show for experts
+    },
+    {
+      name: 'Support',
+      href: '/support',
+      icon: LifeBuoy, // Add import: import { LifeBuoy } from 'lucide-react';
+      show: true, // ← ADD THIS!
+      badge: undefined, // Can add unresolved count later
     },
     {
       name: 'Profile',

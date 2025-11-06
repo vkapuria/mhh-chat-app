@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { UsersIcon, HomeIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, HomeIcon, LifebuoyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 export function AdminNav() {
   const pathname = usePathname();
@@ -11,6 +11,7 @@ export function AdminNav() {
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Monitor Chats', href: '/admin/chats', icon: ChatBubbleLeftRightIcon },
+    { name: 'Support Tickets', href: '/admin/support', icon: LifebuoyIcon },
   ];
 
   return (

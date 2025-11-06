@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -26,7 +27,7 @@ import {
 } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
- import { Info, HelpCircle, PenSquareIcon } from 'lucide-react';
+import { Info, HelpCircle, PenSquareIcon } from 'lucide-react';
 import { EnvelopeIcon } from '@heroicons/react/24/outline';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -105,7 +106,44 @@ export function ContactSupportModal({
     setLoading(true);
 
     try {
-      const response = await fetch('/api/support/contact', {
+      // Step 1: Get auth token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        toast.error('Please log in to submit a support ticket');
+        setLoading(false);
+        return;
+      }
+      
+      const ticketResponse = await fetch('/api/support/tickets', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          order_id: order.id,
+          order_title: order.title,
+          task_code: order.id, // Use order.id directly
+          issue_type: issueType,
+          message: message.trim(),
+          amount: order.amount,
+          expert_fee: order.expert_fee,
+          customer_email: order.customer_email,
+          expert_email: order.expert_email,
+        }),
+      });
+
+      const ticketResult = await ticketResponse.json();
+
+      if (!ticketResult.success) {
+        toast.error(ticketResult.error || 'Failed to create support ticket');
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Send email notification to admin
+      const emailResponse = await fetch('/api/support/contact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -116,7 +154,7 @@ export function ContactSupportModal({
           userType,
           orderId: order.id,
           orderTitle: order.title,
-          taskCode: order.id,
+          taskCode: order.id, // Use order.id directly
           customerName: order.customer_name,
           customerEmail: order.customer_email,
           expertName: order.expert_name,
@@ -124,18 +162,21 @@ export function ContactSupportModal({
           amount: order.amount,
           expertFee: order.expert_fee,
           issueType,
-          message,
+          message: message.trim(),
+          ticketId: ticketResult.ticket.id, // Include ticket ID in email
         }),
       });
 
-      const result = await response.json();
+      const emailResult = await emailResponse.json();
 
-      if (result.success) {
-        toast.success("Support request sent! We'll get back to you soon.");
-        handleOpenChange(false); // Close and reset form
+      // Success even if email fails (ticket is created)
+      if (emailResult.success) {
+        toast.success("Support ticket created! We'll respond shortly.");
       } else {
-        toast.error(result.error || 'Failed to send support request');
+        toast.success("Support ticket created! (Email notification pending)");
       }
+
+      handleOpenChange(false); // Close and reset form
     } catch (error) {
       console.error('Submit error:', error);
       toast.error('Something went wrong. Please try again.');
