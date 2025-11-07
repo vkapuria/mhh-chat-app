@@ -16,7 +16,7 @@ function verifySlackSignature(
 ): boolean {
   const time = Math.floor(Date.now() / 1000);
   if (Math.abs(time - parseInt(timestamp)) > 300) {
-    return false; // Request is older than 5 minutes
+    return false;
   }
 
   const sigBasestring = `v0:${timestamp}:${body}`;
@@ -36,11 +36,18 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
     const payload = JSON.parse(body);
 
-    // Verify Slack signature
+    // Handle URL verification challenge FIRST (before signature check)
+    if (payload.type === 'url_verification') {
+      console.log('✅ Slack URL verification challenge received');
+      return NextResponse.json({ challenge: payload.challenge });
+    }
+
+    // Now verify signature for all other events
     const signature = request.headers.get('x-slack-signature');
     const timestamp = request.headers.get('x-slack-request-timestamp');
     
     if (!signature || !timestamp) {
+      console.error('❌ Missing Slack headers');
       return NextResponse.json({ error: 'Missing headers' }, { status: 400 });
     }
 
@@ -52,12 +59,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (!isValid) {
+      console.error('❌ Invalid Slack signature');
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-    }
-
-    // Handle URL verification challenge
-    if (payload.type === 'url_verification') {
-      return NextResponse.json({ challenge: payload.challenge });
     }
 
     // Handle message events
@@ -69,6 +72,8 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: true });
       }
 
+      console.log('📨 Received message in thread:', event.thread_ts);
+
       // Find ticket by thread_ts
       const { data: ticket } = await supabase
         .from('support_tickets')
@@ -77,28 +82,35 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!ticket) {
-        console.log('No ticket found for thread:', event.thread_ts);
+        console.log('⚠️ No ticket found for thread:', event.thread_ts);
         return NextResponse.json({ ok: true });
       }
 
-      // Get Slack user info
-      const { data: { user: slackUser } } = await fetch(
-        `https://slack.com/api/users.info?user=${event.user}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-          },
-        }
-      ).then(res => res.json());
+      console.log('🎫 Found ticket:', ticket.id);
 
-      const adminName = slackUser?.real_name || slackUser?.name || 'Admin';
+      // Get Slack user info
+      let adminName = 'Admin';
+      try {
+        const userResponse = await fetch(
+          `https://slack.com/api/users.info?user=${event.user}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`,
+            },
+          }
+        );
+        const userData = await userResponse.json();
+        adminName = userData?.user?.real_name || userData?.user?.name || 'Admin';
+      } catch (error) {
+        console.error('Error fetching Slack user:', error);
+      }
 
       // Create admin reply in database
       const { error: replyError } = await supabase
         .from('ticket_replies')
         .insert({
           ticket_id: ticket.id,
-          admin_id: event.user, // Slack user ID
+          admin_id: event.user,
           admin_name: adminName,
           admin_team: 'Support',
           message: event.text,
@@ -106,9 +118,11 @@ export async function POST(request: NextRequest) {
         });
 
       if (replyError) {
-        console.error('Error creating reply:', replyError);
+        console.error('❌ Error creating reply:', replyError);
         return NextResponse.json({ ok: false });
       }
+
+      console.log('✅ Reply saved to database');
 
       // Update ticket timestamp
       await supabase
@@ -119,7 +133,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', ticket.id);
 
-      // Send email to user (reuse existing email logic)
+      // Send email to user
       try {
         const { sendEmail, generateTicketReplyEmail } = await import('@/lib/email');
         const { formatTicketNumber } = await import('@/lib/ticket-utils');
@@ -142,7 +156,7 @@ export async function POST(request: NextRequest) {
           html: emailHtml,
         });
 
-        console.log('✅ Email sent to user from Slack reply');
+        console.log('✅ Email sent to user');
       } catch (emailError) {
         console.error('❌ Failed to send email:', emailError);
       }
@@ -152,7 +166,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error('Slack events error:', error);
+    console.error('❌ Slack events error:', error);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
+}
+
+// Add GET handler for testing
+export async function GET() {
+  return NextResponse.json({ 
+    status: 'Slack Events Endpoint',
+    message: 'This endpoint only accepts POST requests from Slack'
+  });
 }
