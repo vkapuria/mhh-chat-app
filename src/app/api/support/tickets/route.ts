@@ -48,11 +48,18 @@ async function ticketsHandler(request: NextRequest) {
       const userAvatarUrl = user.user_metadata?.avatar_url || null;
 
       // Get order details
-      const { data: order } = await supabase
-        .from('orders')
-        .select('order_title')
-        .eq('order_id', order_id)
-        .single();
+      // Get order details (column is 'title' and 'id', not 'order_title' and 'order_id')
+const { data: order, error: orderError } = await supabase
+.from('orders')
+.select('title')
+.eq('id', order_id)
+.single();
+
+if (orderError) {
+console.error('Failed to fetch order title:', orderError);
+}
+
+console.log('Order fetched:', order);
 
       const { data: ticket, error: ticketError } = await supabase
         .from('support_tickets')
@@ -63,7 +70,7 @@ async function ticketsHandler(request: NextRequest) {
           user_type: userType,
           user_avatar_url: userAvatarUrl,
           order_id,
-          order_title: order?.order_title || '',
+          order_title: order?.title || '',
           issue_type,
           message: message.trim(),
           status: 'submitted',
@@ -85,7 +92,7 @@ async function ticketsHandler(request: NextRequest) {
             user_email: user.email!,
             user_type: userType,
             order_id: order_id,
-            order_title: order?.order_title || '',
+            order_title: order?.title || '',
             issue_type,
             message: message.trim(),
             created_at: ticket.created_at,
