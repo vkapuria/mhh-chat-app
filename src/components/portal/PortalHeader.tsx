@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { User } from '@/types/user';
+import { UserProfileDropdown } from '@/components/user/UserProfileDropdown';
 
 interface PortalHeaderProps {
   user: User;
@@ -16,6 +17,7 @@ export function PortalHeader({ user }: PortalHeaderProps) {
     if (pathname.startsWith('/messages')) return 'Messages';
     if (pathname.startsWith('/earnings')) return 'Earnings';
     if (pathname.startsWith('/profile')) return 'Profile';
+    if (pathname.startsWith('/support')) return 'Support';
     return 'Portal';
   };
 
@@ -25,9 +27,7 @@ export function PortalHeader({ user }: PortalHeaderProps) {
         <h1 className="text-2xl font-bold text-slate-900">
           {getPageTitle()}
         </h1>
-        <div className="text-sm text-slate-600">
-          Welcome, {user.name || user.email}
-        </div>
+        <UserProfileDropdown userType={user.user_type} />
       </div>
     </header>
   );

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UsersIcon, HomeIcon, LifebuoyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { AdminProfileDropdown } from '@/components/admin/AdminProfileDropdown';
 
 export function AdminNav() {
   const pathname = usePathname();
@@ -17,8 +18,9 @@ export function AdminNav() {
   return (
     <nav className="bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex space-x-8">
-          {navItems.map((item) => {
+  <div className="flex justify-between items-center">
+    <div className="flex space-x-8">
+      {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             
@@ -41,7 +43,12 @@ export function AdminNav() {
             );
           })}
         </div>
+        {/* Profile Dropdown */}
+        <div className="py-2">
+          <AdminProfileDropdown />
+        </div>
       </div>
-    </nav>
+    </div>
+  </nav>
   );
 }

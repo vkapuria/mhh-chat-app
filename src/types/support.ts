@@ -34,6 +34,8 @@ export interface SupportTicket {
   // Relations (joined data)
   replies?: TicketReply[];
   reply_count?: number;
+
+  last_reply_by?: 'admin' | 'user' | null;
 }
 
 export interface TicketReply {

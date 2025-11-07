@@ -1,40 +1,36 @@
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle, Clock, AlertCircle } from 'lucide-react';
-
 interface TicketStatusBadgeProps {
   status: 'submitted' | 'in_progress' | 'resolved';
-  className?: string;
+  lastReplyBy?: 'admin' | 'user' | null;
 }
 
-export function TicketStatusBadge({ status, className }: TicketStatusBadgeProps) {
-  const variants = {
-    submitted: {
-      label: 'Submitted',
-      icon: Clock,
-      className: 'bg-blue-100 text-blue-700 border-blue-200',
-    },
-    in_progress: {
-      label: 'In Progress',
-      icon: AlertCircle,
-      className: 'bg-amber-100 text-amber-700 border-amber-200',
-    },
-    resolved: {
-      label: 'Resolved',
-      icon: CheckCircle,
-      className: 'bg-green-100 text-green-700 border-green-200',
-    },
+export function TicketStatusBadge({ status, lastReplyBy }: TicketStatusBadgeProps) {
+  // If in_progress and user replied last, show "Awaiting Response"
+  if (status === 'in_progress' && lastReplyBy === 'user') {
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] bg-red-100 text-red-700 border border-red-200">
+        Awaiting Response
+      </span>
+    );
+  }
+
+  // Regular status badges
+  const badges = {
+    submitted: (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] bg-blue-100 text-blue-700 border border-blue-200">
+        Open
+      </span>
+    ),
+    in_progress: (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] bg-amber-100 text-amber-700 border border-amber-200">
+        In Progress
+      </span>
+    ),
+    resolved: (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] bg-green-100 text-green-700 border border-green-200">
+        Resolved
+      </span>
+    ),
   };
 
-  const variant = variants[status];
-  const Icon = variant.icon;
-
-  return (
-    <Badge
-      variant="outline"
-      className={`${variant.className} ${className} flex items-center gap-1 px-2 py-1`}
-    >
-      <Icon className="w-3 h-3" />
-      {variant.label}
-    </Badge>
-  );
+  return badges[status];
 }

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
+import { sendEmail, generateTicketConfirmationEmail } from '@/lib/email';
+import { formatTicketNumber } from '@/lib/ticket-utils';
+import { postTicketToSlack } from '@/lib/slack';
 
 async function ticketsHandler(request: NextRequest) {
   try {
@@ -11,24 +14,12 @@ async function ticketsHandler(request: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '');
-    console.log('🔍 Token:', token ? 'exists' : 'missing');
-
-    const authResult = await getCachedUser(token);
-    console.log('🔍 Auth result structure:', JSON.stringify(authResult, null, 2));
-
-    const { data: { user }, error: authError } = authResult as any;
-    console.log('🔍 User:', user?.email, 'Error:', authError);
-
+    const { data: { user }, error: authError } = await getCachedUser(token) as any;
 
     if (authError || !user) {
-      console.error('Auth error:', authError || 'No user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userType = user.user_metadata?.user_type;
-    const isAdmin = userType === 'admin';
-
-    // Create authenticated Supabase client with user's token
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -41,71 +32,10 @@ async function ticketsHandler(request: NextRequest) {
       }
     );
 
-    // GET: List tickets
-    if (request.method === 'GET') {
-      const { searchParams } = new URL(request.url);
-      const status = searchParams.get('status');
-
-      // Build base query
-      let query = supabase
-        .from('support_tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      // Non-admins can only see their own tickets
-      if (!isAdmin) {
-        query = query.eq('user_id', user.id);
-      }
-
-      // Filter by status if provided
-      if (status && status !== 'all') {
-        query = query.eq('status', status);
-      }
-
-      const { data: tickets, error: ticketsError } = await query;
-
-      if (ticketsError) {
-        console.error('Tickets query error:', ticketsError);
-        return NextResponse.json({ error: ticketsError.message }, { status: 500 });
-      }
-
-      // Get reply counts for each ticket
-      const ticketsWithCount = await Promise.all(
-        (tickets || []).map(async (ticket) => {
-          const { count } = await supabase
-            .from('ticket_replies')
-            .select('*', { count: 'exact', head: true })
-            .eq('ticket_id', ticket.id);
-
-          return {
-            ...ticket,
-            reply_count: count || 0,
-          };
-        })
-      );
-
-      return NextResponse.json({
-        success: true,
-        tickets: ticketsWithCount,
-      });
-    }
-
-    // POST: Create ticket
     if (request.method === 'POST') {
       const body = await request.json();
-      const {
-        order_id,
-        order_title,
-        task_code,
-        issue_type,
-        message,
-        amount,
-        expert_fee,
-        customer_email,
-        expert_email,
-      } = body;
+      const { order_id, issue_type, message } = body;
 
-      // Validation
       if (!order_id || !issue_type || !message) {
         return NextResponse.json(
           { error: 'Missing required fields' },
@@ -113,35 +43,89 @@ async function ticketsHandler(request: NextRequest) {
         );
       }
 
-      const userName = user.user_metadata?.name || user.email;
-      const displayName = user.user_metadata?.display_name || userName;
+      const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+      const userType = user.user_metadata?.user_type || 'customer';
+      const userAvatarUrl = user.user_metadata?.avatar_url || null;
 
-      // Insert ticket
-      const { data: ticket, error: insertError } = await supabase
+      // Get order details
+      const { data: order } = await supabase
+        .from('orders')
+        .select('order_title')
+        .eq('order_id', order_id)
+        .single();
+
+      const { data: ticket, error: ticketError } = await supabase
         .from('support_tickets')
         .insert({
-          order_id,
-          order_title,
-          task_code,
           user_id: user.id,
-          user_email: user.email || '',
-          user_name: userName,
+          user_email: user.email,
           user_display_name: displayName,
           user_type: userType,
+          user_avatar_url: userAvatarUrl,
+          order_id,
+          order_title: order?.order_title || '',
           issue_type,
-          message,
-          amount,
-          expert_fee,
-          customer_email,
-          expert_email,
+          message: message.trim(),
           status: 'submitted',
         })
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Insert ticket error:', insertError);
-        return NextResponse.json({ error: insertError.message }, { status: 500 });
+      if (ticketError) {
+        console.error('Ticket creation error:', ticketError);
+        return NextResponse.json({ error: ticketError.message }, { status: 500 });
+      }
+
+      if (ticket) {
+        // Post to Slack
+        try {
+          const slackThreadTs = await postTicketToSlack({
+            id: ticket.id,
+            user_display_name: displayName,
+            user_email: user.email!,
+            user_type: userType,
+            order_id: order_id,
+            order_title: order?.order_title || '',
+            issue_type,
+            message: message.trim(),
+            created_at: ticket.created_at,
+          });
+
+          if (slackThreadTs) {
+            await supabase
+              .from('support_tickets')
+              .update({ slack_thread_ts: slackThreadTs })
+              .eq('id', ticket.id);
+            
+            console.log('✅ Posted ticket to Slack');
+          }
+        } catch (slackError) {
+          console.error('❌ Failed to post to Slack:', slackError);
+        }
+
+        // Send confirmation email
+        try {
+          const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://mhh-chat-app.vercel.app'}/support/${ticket.id}`;
+          
+          const emailHtml = generateTicketConfirmationEmail({
+            recipientName: displayName,
+            ticketId: formatTicketNumber(ticket.id),
+            orderId: order_id,
+            issueType: issue_type,
+            ticketUrl,
+          });
+
+          await sendEmail({
+            to: user.email!,
+            replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
+            subject: `Support Ticket Created - ${order_id}`,
+            html: emailHtml,
+          });
+
+          console.log('✅ Confirmation email sent');
+        } catch (emailError) {
+          console.error('❌ Failed to send email:', emailError);
+        }
       }
 
       return NextResponse.json({
@@ -150,16 +134,35 @@ async function ticketsHandler(request: NextRequest) {
       });
     }
 
+    if (request.method === 'GET') {
+      const userType = user.user_metadata?.user_type;
+
+      let query = supabase
+        .from('support_tickets')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (userType !== 'admin') {
+        query = query.eq('user_id', user.id);
+      }
+
+      const { data: tickets, error: fetchError } = await query;
+
+      if (fetchError) {
+        console.error('Fetch tickets error:', fetchError);
+        return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        tickets: tickets || [],
+      });
+    }
+
     return NextResponse.json({ error: 'Method not allowed' }, { status: 405 });
   } catch (error) {
     console.error('Tickets API error:', error);
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 

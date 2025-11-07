@@ -122,8 +122,11 @@ async function ticketDetailHandler(
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
-      // Send email notification about status change
-      if (oldTicket && ticket) {
+      // Send email notification ONLY for manual status changes
+      // Skip email if status changed automatically (e.g., from admin reply)
+      const isManualChange = oldTicket && ticket && oldTicket.status !== ticket.status;
+
+      if (isManualChange) {
         const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://chat.myhomeworkhelp.com'}/support`;
         
         const emailHtml = generateTicketStatusUpdateEmail({
@@ -141,6 +144,8 @@ async function ticketDetailHandler(
           subject: `Ticket Status Update: ${ticket.status.replace('_', ' ').toUpperCase()} - ${ticket.order_id}`,
           html: emailHtml,
         });
+        
+        console.log('✅ Status change email sent');
       }
 
       return NextResponse.json({

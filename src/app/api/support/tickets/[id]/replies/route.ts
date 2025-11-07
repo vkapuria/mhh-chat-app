@@ -56,7 +56,9 @@ async function repliesHandler(
         );
       }
 
-      const adminName = user.user_metadata?.name || user.email;
+      const adminName = user.user_metadata?.display_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Admin';
+      const adminTeam = user.user_metadata?.team || 'Admin';
+      const adminAvatar = user.user_metadata?.avatar_url || null;
 
       const { data: reply, error: insertError } = await supabase
         .from('ticket_replies')
@@ -64,21 +66,41 @@ async function repliesHandler(
           ticket_id: ticketId,
           admin_id: user.id,
           admin_name: adminName,
+          admin_team: adminTeam,
+          admin_avatar: adminAvatar,
           message: message.trim(),
         })
         .select()
         .single();
 
-      if (insertError) {
-        console.error('Insert reply error:', insertError);
-        return NextResponse.json({ error: insertError.message }, { status: 500 });
-      }
-
-      // Update ticket's updated_at timestamp
-      await supabase
-      .from('support_tickets')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', ticketId);
+        if (insertError) {
+          console.error('Insert reply error:', insertError);
+          return NextResponse.json({ error: insertError.message }, { status: 500 });
+        }
+        
+        // Get current ticket to check status
+        const { data: currentTicket } = await supabase
+          .from('support_tickets')
+          .select('status')
+          .eq('id', ticketId)
+          .single();
+        
+        // Auto-change status on first reply
+        const updateData: any = {
+          updated_at: new Date().toISOString(),
+          last_reply_by: 'admin',
+        };
+        
+        // If status is submitted, auto-change to in_progress (SILENT - no email)
+        if (currentTicket?.status === 'submitted') {
+          updateData.status = 'in_progress';
+          console.log('✅ Auto-changed status: submitted → in_progress');
+        }
+        
+        await supabase
+          .from('support_tickets')
+          .update(updateData)
+          .eq('id', ticketId);
 
       // Fetch ticket details for email notification
       const { data: ticket } = await supabase
@@ -102,7 +124,7 @@ async function repliesHandler(
 
         await sendEmail({
           to: ticket.user_email,
-          replyTo: `support+${ticket.id}@chueulkoia.resend.app`, // ← Add this!
+          replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
           subject: `Response to Your Support Ticket - ${ticket.order_id}`,
           html: emailHtml,
         });

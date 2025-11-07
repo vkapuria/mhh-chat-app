@@ -2,37 +2,88 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { SupportTicket } from '@/types/support';
-import { TicketStatusBadge } from '@/components/support/TicketStatusBadge';
-import { CustomerTicketReplyForm } from '@/components/support/TicketReplyForm';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Calendar, Package, Mail, DollarSign } from 'lucide-react';
-import { format } from 'date-fns';
+import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
+import { formatDistanceToNow, format } from 'date-fns';
+import { formatTicketNumber } from '@/lib/ticket-utils';
+import Image from 'next/image';
+import {
+  ArrowLeftIcon,
+} from '@heroicons/react/24/outline';
+
+// Helper component for the status badge
+function StatusBadge({ status }: { status: string }) {
+  if (status === 'resolved') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+        <span className="h-1.5 w-1.5 rounded-full bg-green-500"></span>
+        Resolved
+      </span>
+    );
+  }
+  if (status === 'in_progress') {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
+        <span className="h-1.5 w-1.5 rounded-full bg-yellow-500"></span>
+        In Progress
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
+      Open
+    </span>
+  );
+}
 
 export default function CustomerTicketDetailPage() {
   const params = useParams();
   const router = useRouter();
   const ticketId = params.id as string;
 
-  const [ticket, setTicket] = useState<SupportTicket | null>(null);
+  const [ticket, setTicket] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [replyMessage, setReplyMessage] = useState('');
+  const [sendingReply, setSendingReply] = useState(false);
+  const [currentUserName, setCurrentUserName] = useState('');
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
+  const [optimisticReplies, setOptimisticReplies] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchTicket();
+    const abortController = new AbortController();
+    
+    fetchTicket(abortController.signal);
+    fetchCurrentUser();
+
+    return () => {
+      abortController.abort();
+    };
   }, [ticketId]);
 
-  const fetchTicket = async () => {
+  const fetchCurrentUser = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setCurrentUserName(user.user_metadata?.display_name || user.email?.split('@')[0] || 'You');
+        setCurrentUserAvatar(user.user_metadata?.avatar_url || null);
+      }
+    } catch (error) {
+      console.error('Error fetching current user:', error);
+    }
+  };
+
+  const fetchTicket = async (signal?: AbortSignal) => {
+    setLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session?.access_token) {
-        toast.error('Please log in to view ticket');
-        router.push('/login');
+        setLoading(false);
+        router.push('/login?redirect=/support/' + ticketId);
         return;
       }
 
@@ -40,44 +91,125 @@ export default function CustomerTicketDetailPage() {
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
         },
+        signal,
       });
+
+      if (response.status === 401 || response.status === 403) {
+        setLoading(false);
+        router.push('/login?redirect=/support/' + ticketId);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch ticket data');
+      }
 
       const result = await response.json();
 
       if (result.success) {
         setTicket(result.ticket);
       } else {
-        toast.error('Failed to load ticket');
-        router.push('/support');
+        toast.error(result.error || 'Failed to load ticket');
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
+      
       console.error('Fetch ticket error:', error);
-      toast.error('Something went wrong');
-      router.push('/support');
+      toast.error(error.message || 'Failed to load ticket. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReplySubmit = async () => {
-    await fetchTicket(); // Refresh to show new reply
-    toast.success('Reply sent successfully!');
+  const handleSendReply = async () => {
+    if (!replyMessage.trim()) {
+      toast.error('Please enter a message');
+      return;
+    }
+
+    const optimisticReply = {
+      id: `temp-${Date.now()}`,
+      message: replyMessage.trim(),
+      reply_type: 'user',
+      created_at: new Date().toISOString(),
+    };
+
+    setOptimisticReplies(prev => [...prev, optimisticReply]);
+    
+    const messageCopy = replyMessage;
+    setReplyMessage('');
+    setSendingReply(true);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session?.access_token) {
+        router.push('/login?redirect=/support/' + ticketId);
+        return;
+      }
+
+      const response = await fetch(`/api/support/tickets/${ticketId}/customer-reply`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          message: messageCopy,
+        }),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        router.push('/login?redirect=/support/' + ticketId);
+        return;
+      }
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success('Reply sent successfully!');
+        setOptimisticReplies([]);
+        fetchTicket();
+      } else {
+        setOptimisticReplies(prev => prev.filter(r => r.id !== optimisticReply.id));
+        setReplyMessage(messageCopy);
+        toast.error(result.error || 'Failed to send reply. Please try again.');
+      }
+    } catch (error: any) {
+      console.error('Send reply error:', error);
+      setOptimisticReplies(prev => prev.filter(r => r.id !== optimisticReply.id));
+      setReplyMessage(messageCopy);
+      const errorMsg = error.message || 'Network error. Check your connection and try again.';
+      toast.error(errorMsg);
+    } finally {
+      setSendingReply(false);
+    }
+  };
+
+  const getInitials = (name: string) => {
+    if (!name) return '?';
+    const parts = name.split(' ');
+    if (parts.length === 1) return name.charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-96 max-w-7xl mx-auto">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-slate-600">Loading ticket...</p>
+        </div>
       </div>
     );
   }
 
   if (!ticket) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex items-center justify-center h-96 max-w-7xl mx-auto">
         <div className="text-center">
-          <p className="text-red-600 font-semibold">Ticket not found</p>
-          <Button onClick={() => router.push('/support')} className="mt-4">
+          <p className="text-slate-900 font-semibold mb-2">Ticket not found</p>
+          <Button onClick={() => router.push('/support')} variant="outline">
             Back to Support
           </Button>
         </div>
@@ -85,206 +217,285 @@ export default function CustomerTicketDetailPage() {
     );
   }
 
-  const ticketNumber = `TKT-${ticket.id.substring(0, 8).toUpperCase()}`;
-
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 bg-gray-50 min-h-screen">
       {/* Back Button */}
-      <Button
-        variant="ghost"
-        onClick={() => router.push('/support')}
-        className="mb-4"
-      >
-        <ArrowLeft className="w-4 h-4 mr-2" />
-        Back to Support
-      </Button>
-
-      {/* Header */}
-      <div className="bg-white rounded-lg border border-slate-200 p-6 mb-6">
-        <div className="flex items-start justify-between mb-2">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-slate-900">Support Ticket</h1>
-              <span className="text-sm font-mono text-slate-500 bg-slate-100 px-3 py-1 rounded border">
-                {ticketNumber}
-              </span>
-            </div>
-            <p className="text-sm text-slate-600">
-              Created {format(new Date(ticket.created_at), 'PPpp')}
-            </p>
-          </div>
-          <TicketStatusBadge status={ticket.status} />
-        </div>
+      <div className="mb-4">
+        <Button
+          variant="secondary"
+          onClick={() => router.push('/support')}
+          className="gap-1.5"
+        >
+          <ArrowLeftIcon className="w-4 h-4" />
+          Back to Support
+        </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Content - Conversation */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Issue Details */}
-          <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-3">Issue Type</h3>
-            <p className="text-sm text-slate-700 bg-blue-50 px-4 py-2 rounded border border-blue-100">
-              {ticket.issue_type}
-            </p>
-          </Card>
-
-          {/* Original Message */}
-          <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Your Request</h3>
-            <div className="bg-slate-50 rounded-lg p-4 border-l-4 border-blue-500">
-              <div className="flex items-center gap-2 text-xs text-slate-600 mb-3">
-                <span className="font-semibold text-slate-900">You</span>
-                <span>•</span>
-                <Calendar className="w-3 h-3" />
-                <span>{format(new Date(ticket.created_at), 'PPp')}</span>
+      {/* Ticket Header Card */}
+      <Card className="shadow-sm mb-6 lg:mb-8">
+        <div className="py-4 px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-3 mb-1">
+                <span className="font-mono text-sm text-gray-500">
+                  {formatTicketNumber(ticket.id)}
+                </span>
               </div>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                {ticket.message}
-              </p>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                {ticket.issue_type}
+              </h1>
             </div>
-          </Card>
+          </div>
+        </div>
+      </Card>
+
+      {/* Main Layout: 2/3 content, 1/3 sidebar */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+
+        {/* Left Column: Conversation + Reply */}
+        <div className="lg:col-span-2 space-y-6">
 
           {/* Conversation History */}
-          {ticket.replies && ticket.replies.length > 0 && (
-            <Card className="p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">
-                Conversation ({ticket.replies.length})
+          <Card className="shadow-sm">
+            <div className="p-5 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Conversation History ({(ticket.replies?.length || 0) + optimisticReplies.length})
               </h3>
-              <ScrollArea className="max-h-96">
-                <div className="space-y-4 pr-4">
-                  {ticket.replies.map((reply: any) => {
-                    const isCustomerReply = reply.reply_type === 'user';
+            </div>
+            <div className="p-6 space-y-6">
+              
+              {/* Original Post */}
+              <div className="flex items-start gap-4">
+                {currentUserAvatar ? (
+                  <Image 
+                    src={currentUserAvatar} 
+                    alt={currentUserName}
+                    width={40}
+                    height={40}
+                    className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                  />
+                ) : (
+                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-lg">
+                    {getInitials(currentUserName)}
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-semibold text-gray-900">You</span>
+                    <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
+                  </div>
+                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap">
+                      {ticket.message}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Replies Loop */}
+              {(() => {
+                const allReplies = [...(ticket.replies || []), ...optimisticReplies];
+                return allReplies.length > 0 ? (
+                  allReplies.map((reply: any) => {
+                    const isAdminReply = reply.reply_type === 'admin';
                     
                     return (
-                      <div
-                        key={reply.id}
-                        className={`rounded-lg p-4 border-l-4 ${
-                          isCustomerReply
-                            ? 'bg-blue-50 border-blue-500'
-                            : 'bg-green-50 border-green-500'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2 text-xs text-slate-600 mb-2">
-                          <span className={`font-semibold ${
-                            isCustomerReply ? 'text-blue-700' : 'text-green-700'
+                      <div key={reply.id} className="flex items-start gap-4">
+                        {/* Avatar */}
+                        {isAdminReply ? (
+                          reply.admin_avatar ? (
+                            <Image 
+                              src={reply.admin_avatar} 
+                              alt={reply.admin_name}
+                              width={40}
+                              height={40}
+                              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-blue-600"
+                            />
+                          ) : (
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-lg">
+                              {getInitials(reply.admin_name)}
+                            </div>
+                          )
+                        ) : (
+                          currentUserAvatar ? (
+                            <Image 
+                              src={currentUserAvatar} 
+                              alt={currentUserName}
+                              width={40}
+                              height={40}
+                              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                            />
+                          ) : (
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-lg">
+                              {getInitials(currentUserName)}
+                            </div>
+                          )
+                        )}
+
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`font-semibold ${isAdminReply ? 'text-blue-900' : 'text-gray-900'}`}>
+                              {isAdminReply ? reply.admin_name : 'You'}
+                            </span>
+                            {isAdminReply && (
+                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 capitalize">
+                                {reply.admin_team || 'Support'}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}</span>
+                          </div>
+                          <div className={`p-4 ${
+                            isAdminReply 
+                              ? 'bg-indigo-600 rounded-tr-lg rounded-br-lg rounded-bl-lg' 
+                              : 'bg-slate-700 rounded-tr-lg rounded-br-lg rounded-bl-lg'
                           }`}>
-                            {isCustomerReply ? 'You' : `${reply.admin_name} (Support Team)`}
-                          </span>
-                          <span>•</span>
-                          <Calendar className="w-3 h-3" />
-                          <span>{format(new Date(reply.created_at), 'PPp')}</span>
+                            <p className="text-sm whitespace-pre-wrap text-white">
+                              {reply.message}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                          {reply.message}
-                        </p>
                       </div>
                     );
-                  })}
-                </div>
-              </ScrollArea>
-            </Card>
-          )}
+                  })
+                ) : (
+                  <div className="text-center py-6 text-gray-500 text-sm border-t border-gray-100">
+                    <p>No replies yet. Our support team will respond soon!</p>
+                  </div>
+                );
+              })()}
+            </div>
+          </Card>
 
           {/* Reply Form */}
           {ticket.status !== 'resolved' ? (
-            <Card className="p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Add Your Reply</h3>
-              <p className="text-sm text-slate-600 mb-4">
-                💡 <strong>Tip:</strong> You can also reply directly to our email notifications!
-              </p>
-              <CustomerTicketReplyForm 
-                ticketId={ticket.id} 
-                onReplySubmit={handleReplySubmit} 
-              />
+            <Card className="shadow-sm">
+              <div className="p-5 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">Send Reply</h3>
+              </div>
+              <div className="p-5">
+                <p className="text-sm text-slate-600 mb-4">
+                  💡 <strong>Tip:</strong> You can also reply directly to our email notifications!
+                </p>
+                <Textarea
+                  placeholder="Type your response here..."
+                  value={replyMessage}
+                  onChange={(e) => setReplyMessage(e.target.value)}
+                  rows={6}
+                  className="mb-4 text-sm"
+                  disabled={sendingReply}
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleSendReply}
+                    disabled={sendingReply || !replyMessage.trim()}
+                    className="bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold"
+                  >
+                    {sendingReply ? 'Sending...' : 'Post Reply'}
+                  </Button>
+                </div>
+              </div>
             </Card>
           ) : (
             <Card className="p-6 bg-green-50 border-green-200">
-              <div className="text-center">
-                <p className="text-green-700 font-medium mb-2">
-                  ✓ This ticket has been resolved
-                </p>
-                <p className="text-sm text-green-600">
-                  Need more help? You can submit a new ticket anytime.
-                </p>
+              <div className="space-y-3">
+                <div className="text-center">
+                  <p className="text-green-700 font-bold text-lg mb-1">
+                    ✓ Ticket Resolved
+                  </p>
+                  <p className="text-sm text-green-600">
+                    This ticket was marked as resolved and is now closed.
+                  </p>
+                </div>
+                
+                {ticket.resolved_at && (
+                  <div className="text-center text-xs text-green-600 border-t border-green-200 pt-3">
+                    <p>
+                      Closed on {format(new Date(ticket.resolved_at), 'MMM d, yyyy \'at\' h:mm a')} EST
+                    </p>
+                  </div>
+                )}
+          
+                <div className="bg-white rounded-lg p-4 border border-green-200">
+                  <p className="text-sm text-slate-700 text-center mb-2">
+                    <strong>Need more help?</strong>
+                  </p>
+                  <p className="text-xs text-slate-600 text-center">
+                    This ticket is closed, but you can submit a new ticket anytime for additional assistance.
+                  </p>
+                </div>
               </div>
             </Card>
           )}
         </div>
 
-        {/* Sidebar - Order Info */}
-        <div className="space-y-6">
-          {/* Order Info */}
-          <Card className="p-6 bg-slate-50">
-            <h3 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Order Details
-            </h3>
-            <div className="space-y-3 text-sm">
-              <div>
-                <p className="text-slate-600 text-xs mb-1">Order ID</p>
-                <p className="font-mono font-semibold text-slate-900 text-sm">
-                  {ticket.order_id}
-                </p>
-              </div>
-              <Separator />
-              <div>
-                <p className="text-slate-600 text-xs mb-1">Title</p>
-                <p className="text-slate-900 leading-snug">{ticket.order_title}</p>
-              </div>
-              {ticket.amount && (
-                <>
-                  <Separator />
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-slate-500" />
-                    <div>
-                      <p className="text-slate-600 text-xs">Amount</p>
-                      <p className="font-semibold text-slate-900">${ticket.amount}</p>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </Card>
+        {/* Right Column: Sidebar */}
+        <div className="lg:col-span-1">
+          <Card className="shadow-sm">
+            <div className="p-5">
+              {/* Ticket Info */}
+              <h4 className="text-xs font-semibold uppercase text-black mb-3 flex items-center gap-1.5">
+                <Image 
+                  src="/icons/thumb-tack.svg" 
+                  alt="" 
+                  width={24} 
+                  height={24}
+                  className="w-6 h-6"
+                />
+                Ticket Info
+              </h4>
+              <dl className="text-sm space-y-3 mb-6">
+                <div className="flex justify-between items-center gap-2">
+                  <dt className="font-medium text-gray-500">Status</dt>
+                  <dd>
+                    <StatusBadge status={ticket.status} />
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="font-medium text-gray-500">Created</dt>
+                  <dd className="text-gray-700 text-right">{format(new Date(ticket.created_at), 'MMM d, yyyy, h:mm a')}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="font-medium text-gray-500">Last Update</dt>
+                  <dd className="text-gray-700 text-right">{format(new Date(ticket.updated_at), 'MMM d, yyyy, h:mm a')}</dd>
+                </div>
+              </dl>
+              
+              {/* Order Info */}
+              <h4 className="text-xs font-semibold uppercase text-black mb-3 border-t pt-5 flex items-center gap-1.5">
+                <Image 
+                  src="/icons/table-lamp.svg" 
+                  alt="" 
+                  width={20} 
+                  height={20}
+                  className="w-6 h-6"
+                />
+                Order Info
+              </h4>
+              <dl className="text-sm space-y-3 mb-6">
+                <div className="flex justify-between items-center gap-2">
+                  <dt className="font-medium text-gray-500">Order ID</dt>
+                  <dd className="font-mono text-gray-700">{ticket.order_id || '—'}</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="font-medium text-gray-500">Title</dt>
+                  <dd className="text-gray-700 text-right truncate">{ticket.order_title || '—'}</dd>
+                </div>
+              </dl>
 
-          {/* Timeline */}
-          <Card className="p-6">
-            <h3 className="font-semibold text-slate-900 mb-4">Timeline</h3>
-            <div className="space-y-3 text-sm">
-              <div>
-                <p className="text-slate-600 text-xs">Created</p>
-                <p className="text-slate-900">{format(new Date(ticket.created_at), 'PPp')}</p>
+              {/* Help Info */}
+              <div className="border-t pt-5">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-blue-900 text-sm mb-2">Need Help?</h4>
+                  <p className="text-xs text-blue-800 leading-relaxed">
+                    Our support team typically responds within 24 hours. For urgent matters, 
+                    email <strong>orders@myhomeworkhelp.com</strong>
+                  </p>
+                </div>
               </div>
-              <Separator />
-              <div>
-                <p className="text-slate-600 text-xs">Last Activity</p>
-                <p className="text-slate-900">{format(new Date(ticket.updated_at), 'PPp')}</p>
-              </div>
-              {ticket.resolved_at && (
-                <>
-                  <Separator />
-                  <div>
-                    <p className="text-slate-600 text-xs">Resolved</p>
-                    <p className="text-green-700 font-medium">
-                      {format(new Date(ticket.resolved_at), 'PPp')}
-                    </p>
-                  </div>
-                </>
-              )}
             </div>
-          </Card>
-
-          {/* Help Box */}
-          <Card className="p-6 bg-blue-50 border-blue-200">
-            <h3 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
-              <Mail className="w-4 h-4" />
-              Need Help?
-            </h3>
-            <p className="text-sm text-blue-800 leading-relaxed">
-              Our support team typically responds within 24 hours. For urgent matters, 
-              please email us at <strong>orders@myhomeworkhelp.com</strong>
-            </p>
           </Card>
         </div>
+
       </div>
     </div>
   );

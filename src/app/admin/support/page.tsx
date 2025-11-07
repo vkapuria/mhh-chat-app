@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckCircle, Clock, AlertCircle, Inbox } from 'lucide-react';
 import { formatTicketNumber } from '@/lib/ticket-utils';
+import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 
 type StatusFilter = 'all' | 'submitted' | 'in_progress' | 'resolved';
 
@@ -29,7 +30,8 @@ export default function AdminSupportPage() {
   const counts = {
     all: tickets.length,
     submitted: tickets.filter((t) => t.status === 'submitted').length,
-    in_progress: tickets.filter((t) => t.status === 'in_progress').length,
+    in_progress: tickets.filter((t) => t.status === 'in_progress' && t.last_reply_by === 'admin').length,
+    awaiting_response: tickets.filter((t) => t.status === 'in_progress' && t.last_reply_by === 'user').length,
     resolved: tickets.filter((t) => t.status === 'resolved').length,
   };
 
@@ -55,7 +57,7 @@ export default function AdminSupportPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-8">
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -69,7 +71,7 @@ export default function AdminSupportPage() {
         <Card className="p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-slate-600">Submitted</p>
+              <p className="text-sm text-slate-600">Open</p>
               <p className="text-2xl font-bold text-blue-600">{counts.submitted}</p>
             </div>
             <Clock className="w-8 h-8 text-blue-400" />
@@ -83,6 +85,16 @@ export default function AdminSupportPage() {
               <p className="text-2xl font-bold text-amber-600">{counts.in_progress}</p>
             </div>
             <AlertCircle className="w-8 h-8 text-amber-400" />
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-slate-600">Awaiting Response</p>
+              <p className="text-2xl font-bold text-red-600">{counts.awaiting_response}</p>
+            </div>
+            <ChatBubbleLeftRightIcon className="w-8 h-8 text-red-400" />
           </div>
         </Card>
 
@@ -108,7 +120,7 @@ export default function AdminSupportPage() {
             All ({counts.all})
           </TabsTrigger>
           <TabsTrigger value="submitted">
-            Submitted ({counts.submitted})
+            Open ({counts.submitted})
           </TabsTrigger>
           <TabsTrigger value="in_progress">
             In Progress ({counts.in_progress})

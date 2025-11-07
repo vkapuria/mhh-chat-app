@@ -115,11 +115,15 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Reply created:', reply.id);
-    // Update ticket's updated_at timestamp
+
+    // Update ticket's updated_at timestamp + last_reply_by
     await supabaseAdmin
-    .from('support_tickets')
-    .update({ updated_at: new Date().toISOString() })
-    .eq('id', ticketId);
+      .from('support_tickets')
+      .update({ 
+        updated_at: new Date().toISOString(),
+        last_reply_by: 'user',
+      })
+      .eq('id', ticketId);
 
     console.log('🕐 Ticket timestamp updated');
 
