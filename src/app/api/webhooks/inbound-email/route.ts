@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend'; // ← ADD THIS
+import { postReplyToSlackThread } from '@/lib/slack'; // ADD THIS LINE
 
 const resend = new Resend(process.env.RESEND_API_KEY!); // ← ADD THIS
 
@@ -126,6 +127,21 @@ export async function POST(request: NextRequest) {
       .eq('id', ticketId);
 
     console.log('🕐 Ticket timestamp updated');
+
+    // Post to Slack thread if ticket has one
+if (ticket.slack_thread_ts) {
+  try {
+    await postReplyToSlackThread(ticket.slack_thread_ts, {
+      sender: ticket.user_display_name,
+      senderType: 'user',
+      message: cleanedMessage,
+      created_at: new Date().toISOString(),
+    });
+    console.log('✅ Posted user reply to Slack thread');
+  } catch (slackError) {
+    console.error('❌ Failed to post to Slack:', slackError);
+  }
+}
 
     // Reopen ticket if it was resolved
     if (ticket.status === 'resolved') {
