@@ -56,10 +56,24 @@ export async function POST(request: NextRequest) {
     const payload = JSON.parse(new URLSearchParams(body).get('payload')!);
 
     if (payload.type === 'block_actions') {
-      const action = payload.actions[0];
-      const valueParts = action.value.split('_');
-      const newStatus = valueParts[0];
-      const ticketId = valueParts.slice(1).join('_');
+        const action = payload.actions[0];
+        
+        console.log('🔘 Button clicked:', action);
+        console.log('Action ID:', action.action_id);
+        console.log('Action value:', action.value);
+        
+        if (!action.value) {
+          console.error('❌ No action value!');
+          return NextResponse.json({ text: '❌ Invalid button action' });
+        }
+        
+        // Parse: "in_progress_uuid" or "resolved_uuid"
+        const parts = action.value.split('_');
+        const newStatus = parts[0] === 'in' ? 'in_progress' : parts[0]; // Handle "in_progress"
+        const ticketId = parts.slice(newStatus === 'in_progress' ? 2 : 1).join('-'); // UUID has dashes
+        
+        console.log('Parsed status:', newStatus);
+        console.log('Parsed ticketId:', ticketId);
 
       const { error: updateError } = await supabase
         .from('support_tickets')
