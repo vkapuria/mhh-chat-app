@@ -366,12 +366,39 @@ export function generateTicketStatusChangeEmail({
   newStatus: string;
   ticketUrl: string;
 }) {
-  const statusColors: { [key: string]: string } = {
-    'In Progress': '#F59E0B',
-    'Resolved': '#10B981',
+  // Professional templates for status changes
+  const templates = {
+    'In Progress': {
+      subject: '🔄 We\'re Working on Your Ticket',
+      message: `Hi ${recipientName},
+
+Thank you for reaching out. I wanted to let you know that we're actively working on your ticket regarding <strong>${issueType}</strong>.
+
+We'll update you as soon as we have more information. In the meantime, if you have any additional details or questions, feel free to reply to this email and we'll be notified right away.`,
+      footer: 'We appreciate your patience as we work to resolve your issue.',
+    },
+    'Resolved': {
+      subject: '✅ Your Ticket Has Been Resolved',
+      message: `Hi ${recipientName},
+
+Great news! Your ticket regarding <strong>${issueType}</strong> has been resolved.
+
+If you need any clarification or have follow-up questions, simply reply to this email and your ticket will automatically reopen - we'll be notified right away.
+
+Otherwise, you're all set! Thanks for reaching out, and we're always here to help.`,
+      footer: 'Thank you for your patience. We\'re here to help!',
+    },
   };
 
-  const statusColor = statusColors[newStatus] || '#3B82F6';
+  const template = templates[newStatus as keyof typeof templates] || {
+    subject: 'Ticket Status Updated',
+    message: `Hi ${recipientName},
+
+The status of your support ticket has been updated to: <strong>${newStatus}</strong>
+
+We're working on your ticket and will keep you informed of any updates.`,
+    footer: 'Thank you for contacting support.',
+  };
 
   return `
     <!DOCTYPE html>
@@ -381,43 +408,40 @@ export function generateTicketStatusChangeEmail({
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
         .header { background-color: #4F46E5; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .status-badge { display: inline-block; padding: 8px 16px; border-radius: 20px; font-weight: bold; margin: 10px 0; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
+        .content { background-color: #f9fafb; padding: 30px 20px; border: 1px solid #e5e7eb; }
+        .ticket-info { background-color: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #4F46E5; }
+        .message { background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; line-height: 1.8; }
+        .button { display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 14px; background-color: #f9fafb; border-radius: 0 0 8px 8px; }
+        .tip { background-color: #EEF2FF; padding: 15px; border-radius: 6px; margin: 20px 0; font-size: 14px; border-left: 3px solid #4F46E5; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h2 style="margin: 0;">Ticket Status Updated</h2>
+          <h2 style="margin: 0;">${template.subject}</h2>
         </div>
         <div class="content">
-          <p>Hi ${recipientName},</p>
-          <p>The status of your support ticket has been updated:</p>
+          <div class="message">
+            ${template.message}
+          </div>
           
-          <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <div class="ticket-info">
             <p style="margin: 5px 0;"><strong>Ticket ID:</strong> ${ticketId}</p>
             <p style="margin: 5px 0;"><strong>Order:</strong> ${orderId}</p>
-            <p style="margin: 5px 0;"><strong>Issue Type:</strong> ${issueType}</p>
+            <p style="margin: 5px 0;"><strong>Issue:</strong> ${issueType}</p>
           </div>
 
-          <div style="text-align: center; margin: 20px 0;">
-            <span class="status-badge" style="background-color: ${statusColor}; color: white;">
-              ${newStatus}
-            </span>
+          <div style="text-align: center;">
+            <a href="${ticketUrl}" class="button">View Ticket Details</a>
           </div>
 
-          ${newStatus === 'Resolved' ? `
-            <p style="color: #10B981; font-weight: bold;">✓ Your issue has been resolved! If you need further assistance, feel free to submit a new ticket.</p>
-          ` : `
-            <p>We're working on your ticket and will update you soon.</p>
-          `}
-
-          <a href="${ticketUrl}" class="button">View Ticket Details</a>
+          <div class="tip">
+            <strong>💡 Tip:</strong> You can reply directly to this email and your response will be added to the ticket automatically.
+          </div>
         </div>
         <div class="footer">
-          <p>Thank you for your patience. We're here to help!</p>
+          <p>${template.footer}</p>
         </div>
       </div>
     </body>

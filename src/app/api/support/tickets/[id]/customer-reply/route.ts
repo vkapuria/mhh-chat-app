@@ -149,6 +149,21 @@ async function customerReplyHandler(
       // Don't fail the whole request if email fails
     }
 
+    // Post to Slack thread if ticket has one
+if (ticket.slack_thread_ts) {
+  try {
+    await postReplyToSlackThread(ticket.slack_thread_ts, {
+      sender: ticket.user_display_name,
+      senderType: 'user',
+      message: message.trim(),
+      created_at: new Date().toISOString(),
+    });
+    console.log('✅ Posted user reply to Slack thread');
+  } catch (slackError) {
+    console.error('❌ Failed to post to Slack:', slackError);
+  }
+}
+
     // Reopen ticket if it was resolved
     if (ticket.status === 'resolved') {
       await supabase

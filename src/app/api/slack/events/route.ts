@@ -88,34 +88,25 @@ export async function POST(request: NextRequest) {
 
       console.log('🎫 Found ticket:', ticket.id);
 
-      // Get Slack user info
-      let adminName = 'Admin';
-      try {
-        const userResponse = await fetch(
-          `https://slack.com/api/users.info?user=${event.user}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${process.env.SLACK_BOT_TOKEN}`,
-            },
-          }
-        );
-        const userData = await userResponse.json();
-        adminName = userData?.user?.real_name || userData?.user?.name || 'Admin';
-      } catch (error) {
-        console.error('Error fetching Slack user:', error);
-      }
+      // Use default admin identity for privacy
+const adminName = 'Nick Kessler';
+const adminTeam = 'Admin';
+const adminAvatar = '/avatars/admin/nick-kessler.png';
+
+console.log('Using admin identity:', adminName);
 
       // Create admin reply in database
-      const { error: replyError } = await supabase
-        .from('ticket_replies')
-        .insert({
-          ticket_id: ticket.id,
-          admin_id: event.user,
-          admin_name: adminName,
-          admin_team: 'Support',
-          message: event.text,
-          reply_type: 'admin',
-        });
+const { error: replyError } = await supabase
+.from('ticket_replies')
+.insert({
+  ticket_id: ticket.id,
+  admin_id: event.user,
+  admin_name: adminName,
+  admin_team: adminTeam,
+  admin_avatar: adminAvatar,
+  message: event.text,
+  reply_type: 'admin',
+});
 
       if (replyError) {
         console.error('❌ Error creating reply:', replyError);
