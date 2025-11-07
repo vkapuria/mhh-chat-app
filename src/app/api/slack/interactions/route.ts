@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
         ticketId,
         newStatus
       );
+      
+      // Post status change to thread
+      try {
+        const { slackClient, SLACK_CHANNEL_ID } = await import('@/lib/slack');
+        const statusEmoji = newStatus === 'in_progress' ? '🔄' : '✅';
+        const statusText = newStatus === 'in_progress' ? 'In Progress' : 'Resolved';
+        
+        await slackClient.chat.postMessage({
+          channel: SLACK_CHANNEL_ID,
+          thread_ts: payload.message.ts,
+          text: `${statusEmoji} Status changed to: ${statusText}`,
+        });
+      } catch (err) {
+        console.error('Failed to post status update to thread:', err);
+      }
 
       const { data: ticket } = await supabase
         .from('support_tickets')

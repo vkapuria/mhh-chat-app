@@ -92,12 +92,22 @@ async function ticketsHandler(request: NextRequest) {
           });
 
           if (slackThreadTs) {
-            await supabase
+            // Use service role for update
+            const serviceSupabase = createClient(
+              process.env.NEXT_PUBLIC_SUPABASE_URL!,
+              process.env.SUPABASE_SERVICE_ROLE_KEY!
+            );
+            
+            const { error: updateError } = await serviceSupabase
               .from('support_tickets')
               .update({ slack_thread_ts: slackThreadTs })
               .eq('id', ticket.id);
             
-            console.log('✅ Posted ticket to Slack');
+            if (updateError) {
+              console.error('❌ Failed to save slack_thread_ts:', updateError);
+            } else {
+              console.log('✅ Posted ticket to Slack with thread_ts:', slackThreadTs);
+            }
           }
         } catch (slackError) {
           console.error('❌ Failed to post to Slack:', slackError);
