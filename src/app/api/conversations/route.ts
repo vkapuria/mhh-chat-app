@@ -98,11 +98,10 @@ ordersQuery = ordersQuery
     );
 
     // ✅ OPTIMIZATION 1: Get last message per order IN SQL (not JS)
-    // Using DISTINCT ON for best performance
     const lastMessagesResult = await trackAsync('lastMessages.sqlOptimized', async () => {
       return await supabaseAuth
         .from('chat_messages')
-        .select('order_id, sender_id, message_content, created_at')
+        .select('order_id, sender_id, sender_type, message_content, created_at')
         .in('order_id', orderIds)
         .order('order_id', { ascending: true })
         .order('created_at', { ascending: false });
@@ -113,9 +112,21 @@ ordersQuery = ordersQuery
     // Still need to dedupe in JS since Supabase doesn't support DISTINCT ON directly
     // But with the index, this query is MUCH faster
     const lastMessageMap = new Map<string, any>();
+    const expertUserIdMap = new Map<string, string>();
+    const customerUserIdMap = new Map<string, string>();
+
     allMessages?.forEach((msg: any) => {
+      // Store last message
       if (!lastMessageMap.has(msg.order_id)) {
         lastMessageMap.set(msg.order_id, msg);
+      }
+      
+      // Store user IDs by sender type
+      if (msg.sender_type === 'expert' && !expertUserIdMap.has(msg.order_id)) {
+        expertUserIdMap.set(msg.order_id, msg.sender_id);
+      }
+      if (msg.sender_type === 'customer' && !customerUserIdMap.has(msg.order_id)) {
+        customerUserIdMap.set(msg.order_id, msg.sender_id);
       }
     });
 
@@ -214,11 +225,11 @@ if (isChatClosed || !isOrderActive) {
     customer_name: order.customer_name,
     customer_display_name: order.customer_display_name,
     customer_email: order.customer_email,
-    customer_user_id: order.customer_user_id,
     expert_name: order.expert_name,
     expert_display_name: order.expert_display_name,
     expert_email: expertEmail,
-    expert_user_id: order.expert_user_id,
+    expert_user_id: expertUserIdMap.get(order.id) || null,
+    customer_user_id: customerUserIdMap.get(order.id) || null,
     status: order.status,
     updated_at: order.updated_at,
     chat_status: order.chat_status,
