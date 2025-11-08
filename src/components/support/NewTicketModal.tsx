@@ -6,6 +6,7 @@ import { OrderSelector } from './OrderSelector';
 import { TicketCreationForm } from './TicketCreationForm';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface NewTicketModalProps {
   open: boolean;
@@ -13,7 +14,7 @@ interface NewTicketModalProps {
   onSuccess: () => void;
 }
 
-type ModalView = 'order-selection' | 'ticket-form' | 'all-orders' | 'general-inquiry';
+type ModalView = 'order-selection' | 'ticket-form' | 'all-orders';
 
 export function NewTicketModal({ open, onClose, onSuccess }: NewTicketModalProps) {
   const [view, setView] = useState<ModalView>('order-selection');
@@ -55,51 +56,119 @@ export function NewTicketModal({ open, onClose, onSuccess }: NewTicketModalProps
 
   return (
     <Dialog open={open} onOpenChange={handleCloseModal}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold">
-            {view === 'order-selection' && 'Create Support Ticket'}
-            {view === 'ticket-form' && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBack}
-                  className="p-0 h-auto"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                </Button>
-                <span>Create Ticket</span>
-              </div>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -20 }}
+          transition={{ duration: 0.3 }}
+          className="p-6"
+        >
+          <DialogHeader className="mb-4">
+            <DialogTitle className="text-xl md:text-2xl font-bold">
+              <AnimatePresence mode="wait">
+                {view === 'order-selection' && (
+                  <motion.span
+                    key="order-selection"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                  >
+                    Create Support Ticket
+                  </motion.span>
+                )}
+                {view === 'ticket-form' && (
+                  <motion.div
+                    key="ticket-form"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBack}
+                      className="p-0 h-auto hover:bg-transparent"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <span>Create Ticket</span>
+                  </motion.div>
+                )}
+                {view === 'all-orders' && (
+                  <motion.div
+                    key="all-orders"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="flex items-center gap-2"
+                  >
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBack}
+                      className="p-0 h-auto hover:bg-transparent"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </Button>
+                    <span>Select Order</span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </DialogTitle>
+          </DialogHeader>
+
+          <AnimatePresence mode="wait">
+            {view === 'order-selection' && (
+              <motion.div
+                key="order-selection-view"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <OrderSelector
+                  onOrderSelect={handleOrderSelect}
+                  onViewAll={() => setView('all-orders')}
+                  onGeneralInquiry={handleGeneralInquiry}
+                />
+              </motion.div>
             )}
-            {view === 'all-orders' && 'Select Order'}
-            {view === 'general-inquiry' && 'General Inquiry'}
-          </DialogTitle>
-        </DialogHeader>
 
-        {view === 'order-selection' && (
-          <OrderSelector
-            onOrderSelect={handleOrderSelect}
-            onViewAll={() => setView('all-orders')}
-            onGeneralInquiry={handleGeneralInquiry}
-          />
-        )}
+            {view === 'ticket-form' && selectedOrder && (
+              <motion.div
+                key="ticket-form-view"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <TicketCreationForm
+                  order={selectedOrder}
+                  onSuccess={handleSuccess}
+                  onCancel={handleBack}
+                />
+              </motion.div>
+            )}
 
-        {view === 'ticket-form' && selectedOrder && (
-          <TicketCreationForm
-            order={selectedOrder}
-            onSuccess={handleSuccess}
-            onCancel={handleBack}
-          />
-        )}
-
-        {view === 'all-orders' && (
-          <OrderSelector
-            onOrderSelect={handleOrderSelect}
-            showAll={true}
-            onBack={handleBack}
-          />
-        )}
+            {view === 'all-orders' && (
+              <motion.div
+                key="all-orders-view"
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <OrderSelector
+                  onOrderSelect={handleOrderSelect}
+                  showAll={true}
+                  onBack={handleBack}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </DialogContent>
     </Dialog>
   );

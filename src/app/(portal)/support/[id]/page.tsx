@@ -218,30 +218,32 @@ export default function CustomerTicketDetailPage() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 bg-gray-50 min-h-screen">
+    <div className="max-w-7xl mx-auto p-3 md:p-8 bg-gray-50 min-h-screen">
       {/* Back Button */}
-      <div className="mb-4">
+      <div className="mb-3 md:mb-4">
         <Button
           variant="secondary"
           onClick={() => router.push('/support')}
-          className="gap-1.5"
+          className="gap-1.5 text-sm"
+          size="sm"
         >
           <ArrowLeftIcon className="w-4 h-4" />
-          Back to Support
+          <span className="hidden sm:inline">Back to Support</span>
+          <span className="sm:hidden">Back</span>
         </Button>
       </div>
 
       {/* Ticket Header Card */}
-      <Card className="shadow-sm mb-6 lg:mb-8">
-        <div className="py-4 px-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <Card className="shadow-sm mb-4 md:mb-6 lg:mb-8">
+        <div className="py-3 px-4 md:py-4 md:px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="font-mono text-sm text-gray-500">
+              <div className="flex items-center gap-2 md:gap-3 mb-1">
+                <span className="font-mono text-xs md:text-sm text-gray-500">
                   {formatTicketNumber(ticket.id)}
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
                 {ticket.issue_type}
               </h1>
             </div>
@@ -250,42 +252,42 @@ export default function CustomerTicketDetailPage() {
       </Card>
 
       {/* Main Layout: 2/3 content, 1/3 sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
 
         {/* Left Column: Conversation + Reply */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* Conversation History */}
           <Card className="shadow-sm">
-            <div className="p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+            <div className="p-4 md:p-5 border-b border-gray-200">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900">
                 Conversation History ({(ticket.replies?.length || 0) + optimisticReplies.length})
               </h3>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               
               {/* Original Post */}
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 md:gap-4">
                 {currentUserAvatar ? (
                   <Image 
                     src={currentUserAvatar} 
                     alt={currentUserName}
-                    width={40}
-                    height={40}
-                    className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                    width={36}
+                    height={36}
+                    className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-400"
                   />
                 ) : (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-lg">
+                  <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-sm md:text-lg">
                     {getInitials(currentUserName)}
                   </div>
                 )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-gray-900">You</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
+                    <span className="font-semibold text-gray-900 text-sm md:text-base">You</span>
                     <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">
+                  <div className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words">
                       {ticket.message}
                     </p>
                   </div>
@@ -300,19 +302,19 @@ export default function CustomerTicketDetailPage() {
                     const isAdminReply = reply.reply_type === 'admin';
                     
                     return (
-                      <div key={reply.id} className="flex items-start gap-4">
+                      <div key={reply.id} className="flex items-start gap-3 md:gap-4">
                         {/* Avatar */}
                         {isAdminReply ? (
                           reply.admin_avatar ? (
                             <Image 
                               src={reply.admin_avatar} 
                               alt={reply.admin_name}
-                              width={40}
-                              height={40}
-                              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-blue-600"
+                              width={36}
+                              height={36}
+                              className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-blue-600"
                             />
                           ) : (
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-lg">
+                            <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm md:text-lg">
                               {getInitials(reply.admin_name)}
                             </div>
                           )
@@ -321,35 +323,35 @@ export default function CustomerTicketDetailPage() {
                             <Image 
                               src={currentUserAvatar} 
                               alt={currentUserName}
-                              width={40}
-                              height={40}
-                              className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                              width={36}
+                              height={36}
+                              className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-400"
                             />
                           ) : (
-                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-lg">
+                            <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-sm md:text-lg">
                               {getInitials(currentUserName)}
                             </div>
                           )
                         )}
 
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`font-semibold ${isAdminReply ? 'text-blue-900' : 'text-gray-900'}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 md:gap-2 mb-1 flex-wrap">
+                            <span className={`font-semibold text-sm md:text-base ${isAdminReply ? 'text-blue-900' : 'text-gray-900'}`}>
                               {isAdminReply ? reply.admin_name : 'You'}
                             </span>
                             {isAdminReply && (
-                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 capitalize">
+                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] md:text-xs font-medium text-blue-800 capitalize">
                                 {reply.admin_team || 'Support'}
                               </span>
                             )}
                             <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}</span>
                           </div>
-                          <div className={`p-4 ${
+                          <div className={`p-3 md:p-4 ${
                             isAdminReply 
                               ? 'bg-indigo-600 rounded-tr-lg rounded-br-lg rounded-bl-lg' 
                               : 'bg-slate-700 rounded-tr-lg rounded-br-lg rounded-bl-lg'
                           }`}>
-                            <p className="text-sm whitespace-pre-wrap text-white">
+                            <p className="text-xs md:text-sm whitespace-pre-wrap break-words text-white">
                               {reply.message}
                             </p>
                           </div>
@@ -369,26 +371,26 @@ export default function CustomerTicketDetailPage() {
           {/* Reply Form */}
           {ticket.status !== 'resolved' ? (
             <Card className="shadow-sm">
-              <div className="p-5 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900">Send Reply</h3>
+              <div className="p-4 md:p-5 border-b border-gray-200">
+                <h3 className="text-base md:text-lg font-semibold text-gray-900">Send Reply</h3>
               </div>
-              <div className="p-5">
-                <p className="text-sm text-slate-600 mb-4">
+              <div className="p-4 md:p-5">
+                <p className="text-xs md:text-sm text-slate-600 mb-4">
                   💡 <strong>Tip:</strong> You can also reply directly to our email notifications!
                 </p>
                 <Textarea
                   placeholder="Type your response here..."
                   value={replyMessage}
                   onChange={(e) => setReplyMessage(e.target.value)}
-                  rows={6}
-                  className="mb-4 text-sm"
+                  rows={4}
+                  className="mb-4 text-xs md:text-sm"
                   disabled={sendingReply}
                 />
                 <div className="flex justify-end">
                   <Button
                     onClick={handleSendReply}
                     disabled={sendingReply || !replyMessage.trim()}
-                    className="bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold"
+                    className="bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold w-full sm:w-auto"
                   >
                     {sendingReply ? 'Sending...' : 'Post Reply'}
                   </Button>
@@ -431,7 +433,7 @@ export default function CustomerTicketDetailPage() {
         {/* Right Column: Sidebar */}
         <div className="lg:col-span-1">
           <Card className="shadow-sm">
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               {/* Ticket Info */}
               <h4 className="text-xs font-semibold uppercase text-black mb-3 flex items-center gap-1.5">
                 <Image 

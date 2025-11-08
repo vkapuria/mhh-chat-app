@@ -375,30 +375,32 @@ ${currentAdminName}`
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 bg-gray-50 min-h-screen">
+    <div className="max-w-7xl mx-auto p-3 md:p-8 bg-gray-50 min-h-screen">
       {/* Back Button */}
-      <div className="mb-4">
+      <div className="mb-3 md:mb-4">
         <Button
           variant="secondary"
           onClick={() => router.push('/admin/support')}
-          className="gap-1.5"
+          className="gap-1.5 text-sm"
+          size="sm"
         >
           <ArrowLeftIcon className="w-4 h-4" />
-          Back to Tickets
+          <span className="hidden sm:inline">Back to Tickets</span>
+          <span className="sm:hidden">Back</span>
         </Button>
       </div>
 
       {/* Ticket Header Card */}
-      <Card className="shadow-sm mb-6 lg:mb-8">
-        <div className="py-4 px-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <Card className="shadow-sm mb-4 md:mb-6 lg:mb-8">
+        <div className="py-3 px-4 md:py-4 md:px-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-4">
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="font-mono text-sm text-gray-500">
+              <div className="flex items-center gap-2 md:gap-3 mb-1">
+                <span className="font-mono text-xs md:text-sm text-gray-500">
                   {formatTicketNumber(ticket.id)}
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold text-gray-900">
                 {ticket.issue_type}
               </h1>
             </div>
@@ -407,42 +409,42 @@ ${currentAdminName}`
       </Card>
 
       {/* Main Layout: 2/3 content, 1/3 sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 lg:gap-8">
 
         {/* Left Column: Conversation + Reply */}
         <div className="lg:col-span-2 space-y-6">
 
           {/* Conversation History */}
           <Card className="shadow-sm">
-            <div className="p-5 border-b border-gray-200">
+            <div className="p-4 md:p-5 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 Conversation History ({(ticket.replies?.length || 0) + optimisticReplies.length})
               </h3>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-4 md:p-6 space-y-4 md:space-y-6">
               
               {/* Original Post */}
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 md:gap-4">
                 {ticket.user_avatar_url ? (
                   <Image 
                     src={ticket.user_avatar_url} 
                     alt={ticket.user_display_name}
-                    width={40}
-                    height={40}
-                    className="flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 border-gray-400"
+                    width={36}
+                    height={36}
+                    className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-400"
                   />
                 ) : (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-lg" title={ticket.user_display_name}>
+                  <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-sm md:text-lg" title={ticket.user_display_name}>
                     {getInitials(ticket.user_display_name)}
                   </div>
                 )}
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-gray-900">{ticket.user_display_name}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 md:gap-2 mb-1 flex-wrap">
+                    <span className="font-semibold text-gray-900 text-sm md:text-base">{ticket.user_display_name}</span>
                     <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
                   </div>
-                  <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">
+                  <div className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words">
                       {ticket.message}
                     </p>
                   </div>
@@ -465,44 +467,44 @@ ${currentAdminName}`
                       : reply.admin_avatar;
                     
                     return (
-                      <div key={reply.id} className="flex items-start gap-4">
+                      <div key={reply.id} className="flex items-start gap-3 md:gap-4">
                         {/* Avatar */}
                         {replyAvatar ? (
                           <Image 
                             src={replyAvatar} 
                             alt={displayName}
-                            width={40}
-                            height={40}
-                            className={`flex-shrink-0 w-10 h-10 rounded-full object-cover border-2 ${
+                            width={36}
+                            height={36}
+                            className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 ${
                               isAdminReply ? 'border-blue-600' : 'border-gray-400'
                             }`}
                           />
                         ) : (
-                          <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-lg ${
+                          <div className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm md:text-lg ${
                             isAdminReply ? 'bg-blue-600' : 'bg-gray-700'
                           }`} title={displayName}>
                             {getInitials(displayName)}
                           </div>
                         )}
 
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`font-semibold ${isAdminReply ? 'text-blue-900' : 'text-gray-900'}`}>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 md:gap-2 mb-1 flex-wrap">
+                          <span className={`font-semibold text-sm md:text-base ${isAdminReply ? 'text-blue-900' : 'text-gray-900'}`}>
                               {displayName}
                             </span>
                             {isAdminReply && (
-                              <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800 capitalize">
+                                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] md:text-xs font-medium text-blue-800 capitalize">
                                 {replyTeam}
                               </span>
                             )}
                             <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}</span>
                           </div>
-                          <div className={`p-4 ${
+                          <div className={`p-3 md:p-4 ${
                             isAdminReply 
                               ? 'bg-indigo-600 rounded-tr-lg rounded-br-lg rounded-bl-lg' 
                               : 'bg-slate-700 rounded-tr-lg rounded-br-lg rounded-bl-lg'
                           }`}>
-                            <p className="text-sm whitespace-pre-wrap text-white">
+                            <p className="text-xs md:text-sm whitespace-pre-wrap break-words text-white">
                               {reply.message}
                             </p>
                           </div>
@@ -521,10 +523,10 @@ ${currentAdminName}`
 
           {/* Reply Form */}
           <Card className="shadow-sm">
-            <div className="p-5 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Send Reply</h3>
+            <div className="p-4 md:p-5 border-b border-gray-200">
+              <h3 className="text-base md:text-lg font-semibold text-gray-900">Send Reply</h3>
             </div>
-            <div className="p-5">
+            <div className="p-4 md:p-5">
               {/* Template Selector */}
               {showTemplateSelector && pendingStatusChange && (
                 <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -601,38 +603,44 @@ ${currentAdminName}`
                 disabled={sendingReply}
               />
               
-              <div className="mt-4 flex items-center justify-between">
-                {pendingStatusChange && (
-                  <div className="text-sm text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200">
-                    Status will change to: <strong className="capitalize">{pendingStatusChange.replace('_', ' ')}</strong>
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-4 ml-auto">
-                  <Select
-                    value={ticket.status}
-                    onValueChange={handleStatusChange}
-                    disabled={updatingStatus || sendingReply}
-                  >
-                    <SelectTrigger className="w-48 text-sm">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="submitted">Open</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="resolved">Resolved</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button
-                    onClick={handleSendReply}
-                    disabled={sendingReply || updatingStatus || !replyMessage.trim()}
-                    className="bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold"
-                  >
-                    {sendingReply ? 'Sending...' : 'Post Reply'}
-                  </Button>
-                </div>
-              </div>
+              <div className="mt-4">
+  {/* Pending Status Change Notice */}
+  {pendingStatusChange && (
+    <div className="text-xs md:text-sm text-blue-700 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 mb-3">
+      Status will change to: <strong className="capitalize">{pendingStatusChange.replace('_', ' ')}</strong>
+    </div>
+  )}
+  
+  {/* Controls: Stacked on mobile, 50-50 on desktop */}
+  <div className="flex flex-col sm:flex-row gap-3">
+    <div className="w-full sm:flex-1">
+      <Select
+        value={ticket.status}
+        onValueChange={handleStatusChange}
+        disabled={updatingStatus || sendingReply}
+      >
+        <SelectTrigger className="w-full text-sm">
+          <SelectValue placeholder="Status" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="submitted">Open</SelectItem>
+          <SelectItem value="in_progress">In Progress</SelectItem>
+          <SelectItem value="resolved">Resolved</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    
+    <div className="w-full sm:flex-1">
+      <Button
+        onClick={handleSendReply}
+        disabled={sendingReply || updatingStatus || !replyMessage.trim()}
+        className="bg-gray-900 text-white hover:bg-gray-800 text-sm font-semibold w-full"
+      >
+        {sendingReply ? 'Sending...' : 'Post Reply'}
+      </Button>
+    </div>
+  </div>
+</div>
             </div>
           </Card>
         </div>
@@ -640,7 +648,7 @@ ${currentAdminName}`
         {/* Right Column: Metadata Sidebar */}
         <div className="lg:col-span-1 space-y-6">
           <Card className="shadow-sm">
-            <div className="p-5">
+            <div className="p-4 md:p-5">              
               {/* Ticket Info */}
               <h4 className="text-xs font-semibold uppercase text-black mb-3 flex items-center gap-1.5">
                 <Image 
@@ -747,7 +755,6 @@ ${currentAdminName}`
             </div>
           </Card>
         </div>
-
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ export interface SupportTicket {
   user_email: string;
   user_name: string;
   user_display_name: string;
+  user_avatar_url?: string | null;  // ← ADD THIS LINE
   user_type: 'customer' | 'expert';
   
   // Ticket details
