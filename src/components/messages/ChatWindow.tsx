@@ -10,6 +10,8 @@ import {
   CheckIcon,
   } from '@heroicons/react/24/outline';
 import { createClient } from '@supabase/supabase-js';
+import { trackMessageSent } from '@/lib/analytics';
+
 
 interface Message {
   id: string;
@@ -359,6 +361,13 @@ useEffect(() => {
       });
   
       if (response.ok) {
+        // Track message sent
+        trackMessageSent({
+          orderId: orderId,
+          userType: currentUserType,
+          messageLength: newMessage.trim().length,
+        });
+        
         setNewMessage('');
         console.log('✅ Message sent successfully');
         

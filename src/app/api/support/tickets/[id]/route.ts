@@ -4,6 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketStatusUpdateEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
+import { getOpenPanel } from '@/lib/openpanel';
 
 async function ticketDetailHandler(
   request: NextRequest,
@@ -120,6 +121,19 @@ async function ticketDetailHandler(
       if (error) {
         console.error('Update ticket error:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      // Track ticket resolved event
+      if (ticket && status === 'resolved' && oldTicket?.status !== 'resolved') {
+        const createdAt = new Date(ticket.created_at);
+        const resolvedAt = new Date(ticket.resolved_at || Date.now());
+        const resolutionTimeMinutes = Math.round((resolvedAt.getTime() - createdAt.getTime()) / 60000);
+        
+        getOpenPanel()?.track('✅ ticket_resolved', {
+          ticketId: ticketId,
+          resolvedBy: 'admin',
+          resolutionTime: resolutionTimeMinutes,
+        });
       }
 
       // Send email notification ONLY for manual status changes

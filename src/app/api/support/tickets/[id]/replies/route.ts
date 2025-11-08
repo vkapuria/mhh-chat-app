@@ -4,7 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketReplyEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
-
+import { getOpenPanel } from '@/lib/openpanel';
 
 async function repliesHandler(
   request: NextRequest,
@@ -72,6 +72,15 @@ async function repliesHandler(
         })
         .select()
         .single();
+
+        // Track ticket reply (admin)
+        if (!insertError && reply) {
+          getOpenPanel()?.track('💭 ticket_replied', {
+            ticketId: ticketId,
+            repliedBy: 'admin',
+            userType: 'admin',
+          });
+        }
 
         if (insertError) {
           console.error('Insert reply error:', insertError);

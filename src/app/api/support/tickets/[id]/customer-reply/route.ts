@@ -4,6 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail } from '@/lib/email';
 import { postReplyToSlackThread } from '@/lib/slack';
+import { getOpenPanel } from '@/lib/openpanel';
 
 async function customerReplyHandler(
   request: NextRequest,
@@ -72,6 +73,16 @@ async function customerReplyHandler(
       })
       .select()
       .single();
+
+      // Track ticket reply (customer/expert)
+      if (!insertError && reply) {
+        const userType = user.user_metadata?.user_type || 'customer';
+        getOpenPanel()?.track('💭 ticket_replied', {
+          ticketId: ticketId,
+          repliedBy: userType,
+          userType: userType,
+        });
+      }
 
     if (insertError) {
       console.error('Insert reply error:', insertError);
