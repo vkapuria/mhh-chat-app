@@ -5,6 +5,7 @@ import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketReplyEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
 import { trackTicketRepliedServer } from '@/lib/analytics-server';
+import { postReplyToSlackThread } from '@/lib/slack';
 
 async function repliesHandler(
   request: NextRequest,
@@ -137,6 +138,20 @@ async function repliesHandler(
           subject: `Response to Your Support Ticket - ${ticket.order_id}`,
           html: emailHtml,
         });
+
+        // Post to Slack thread if ticket has one
+if (ticket.slack_thread_ts) {
+  try {
+    await postReplyToSlackThread(ticket.slack_thread_ts, {
+      sender: adminName,
+      senderType: 'admin',
+      message: message.trim(),
+      created_at: new Date().toISOString(),
+    });
+    console.log('✅ Posted admin reply to Slack thread');
+  } catch (slackError) {
+    console.error('❌ Failed to post to Slack:', slackError);
+  } }
       }
 
       return NextResponse.json({

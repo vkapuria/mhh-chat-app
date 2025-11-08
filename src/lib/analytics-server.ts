@@ -5,10 +5,27 @@ let serverOpClient: OpenPanel | null = null;
 
 function getServerOpenPanel() {
   if (!serverOpClient) {
-    serverOpClient = new OpenPanel({
-      clientId: process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID!,
-      clientSecret: process.env.NEXT_PUBLIC_OPENPANEL_SECRET!,
+    const clientId = process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID;
+    const clientSecret = process.env.NEXT_PUBLIC_OPENPANEL_SECRET;
+    
+    console.log('🔍 OpenPanel Server Init:', {
+      hasClientId: !!clientId,
+      hasClientSecret: !!clientSecret,
+      clientIdLength: clientId?.length,
+      secretLength: clientSecret?.length,
     });
+    
+    if (!clientId || !clientSecret) {
+      console.error('❌ OpenPanel credentials missing!');
+      return null;
+    }
+    
+    serverOpClient = new OpenPanel({
+      clientId,
+      clientSecret,
+    });
+    
+    console.log('✅ OpenPanel server client initialized');
   }
   return serverOpClient;
 }
@@ -20,7 +37,14 @@ export const trackTicketRepliedServer = (params: {
   userType: 'customer' | 'expert' | 'admin';
 }) => {
   try {
-    getServerOpenPanel()?.track('💭 ticket_replied', params);
+    console.log('📊 Tracking ticket_replied (server):', params);
+    const op = getServerOpenPanel();
+    if (op) {
+      op.track('💭 ticket_replied', params);
+      console.log('✅ ticket_replied tracked successfully');
+    } else {
+      console.error('❌ OpenPanel client not available');
+    }
   } catch (error) {
     console.error('❌ Failed to track ticket_replied:', error);
   }
@@ -32,7 +56,14 @@ export const trackTicketResolvedServer = (params: {
   resolutionTime?: number;
 }) => {
   try {
-    getServerOpenPanel()?.track('✅ ticket_resolved', params);
+    console.log('📊 Tracking ticket_resolved (server):', params);
+    const op = getServerOpenPanel();
+    if (op) {
+      op.track('✅ ticket_resolved', params);
+      console.log('✅ ticket_resolved tracked successfully');
+    } else {
+      console.error('❌ OpenPanel client not available');
+    }
   } catch (error) {
     console.error('❌ Failed to track ticket_resolved:', error);
   }
