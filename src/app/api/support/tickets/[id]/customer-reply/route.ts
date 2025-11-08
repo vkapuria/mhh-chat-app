@@ -4,7 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail } from '@/lib/email';
 import { postReplyToSlackThread } from '@/lib/slack';
-import { getOpenPanel } from '@/lib/openpanel';
+import { trackTicketRepliedServer } from '@/lib/analytics-server';
 
 async function customerReplyHandler(
   request: NextRequest,
@@ -77,7 +77,7 @@ async function customerReplyHandler(
       // Track ticket reply (customer/expert)
       if (!insertError && reply) {
         const userType = user.user_metadata?.user_type || 'customer';
-        getOpenPanel()?.track('💭 ticket_replied', {
+        trackTicketRepliedServer({
           ticketId: ticketId,
           repliedBy: userType,
           userType: userType,

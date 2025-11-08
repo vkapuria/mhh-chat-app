@@ -24,7 +24,7 @@ export function OpenPanelProvider() {
       
       // Track page view on every route change
       if (op) {
-        op.track('page_view', {
+        op.track('📄 page_view', {
           path: pathname,
           url: window.location.href,
         });

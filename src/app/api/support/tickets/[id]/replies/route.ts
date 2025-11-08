@@ -4,7 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketReplyEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
-import { getOpenPanel } from '@/lib/openpanel';
+import { trackTicketRepliedServer } from '@/lib/analytics-server';
 
 async function repliesHandler(
   request: NextRequest,
@@ -75,7 +75,7 @@ async function repliesHandler(
 
         // Track ticket reply (admin)
         if (!insertError && reply) {
-          getOpenPanel()?.track('💭 ticket_replied', {
+          trackTicketRepliedServer({
             ticketId: ticketId,
             repliedBy: 'admin',
             userType: 'admin',

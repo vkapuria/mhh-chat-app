@@ -4,7 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { sendEmail, generateTicketStatusUpdateEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
-import { getOpenPanel } from '@/lib/openpanel';
+import { trackTicketResolvedServer } from '@/lib/analytics-server';
 
 async function ticketDetailHandler(
   request: NextRequest,
@@ -129,7 +129,7 @@ async function ticketDetailHandler(
         const resolvedAt = new Date(ticket.resolved_at || Date.now());
         const resolutionTimeMinutes = Math.round((resolvedAt.getTime() - createdAt.getTime()) / 60000);
         
-        getOpenPanel()?.track('✅ ticket_resolved', {
+        trackTicketResolvedServer({
           ticketId: ticketId,
           resolvedBy: 'admin',
           resolutionTime: resolutionTimeMinutes,
