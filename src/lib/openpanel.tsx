@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 import { OpenPanel } from '@openpanel/sdk';
 
 let opClient: OpenPanel | null = null;
@@ -15,19 +16,22 @@ export function getOpenPanel() {
 }
 
 export function OpenPanelProvider() {
+  const pathname = usePathname();
+
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID) {
       const op = getOpenPanel();
       
-      // Track page views
+      // Track page view on every route change
       if (op) {
         op.track('page_view', {
-          path: window.location.pathname,
+          path: pathname,
           url: window.location.href,
         });
+        console.log('📊 Tracked page view:', pathname);
       }
     }
-  }, []);
+  }, [pathname]); // Re-run when pathname changes
 
   return null;
 }
