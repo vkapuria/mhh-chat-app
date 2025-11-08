@@ -39,9 +39,11 @@ async function conversationsHandler(request: NextRequest) {
       customer_name,
       customer_display_name,
       customer_email,
+      customer_user_id,
       expert_name,
       expert_display_name,
       expert_id,
+      expert_user_id,
       status,
       updated_at,
       chat_status,
@@ -202,31 +204,33 @@ if (isChatClosed || !isOrderActive) {
   conversationStatus = 'ready';
 }
 
-return {
-  id: order.id,
-  title: order.title,
-  task_code: order.task_code,
-  order_date: order.order_date,
-  amount: order.amount,
-  expert_fee: order.expert_fee,
-  customer_name: order.customer_name,
-  customer_display_name: order.customer_display_name,
-  customer_email: order.customer_email,
-  expert_name: order.expert_name,
-  expert_display_name: order.expert_display_name,
-  expert_email: expertEmail,
-  status: order.status,
-  updated_at: order.updated_at,
-  chat_status: order.chat_status,
-  chat_closed_at: order.chat_closed_at,
-  conversation_status: conversationStatus,
-  lastMessage: lastMessage ? {
-    message_content: lastMessage.message_content.substring(0, 50),
-    created_at: lastMessage.created_at,
-    sender_id: lastMessage.sender_id,
-  } : null,
-  unreadCount,
-};
+  return {
+    id: order.id,
+    title: order.title,
+    task_code: order.task_code,
+    order_date: order.order_date,
+    amount: order.amount,
+    expert_fee: order.expert_fee,
+    customer_name: order.customer_name,
+    customer_display_name: order.customer_display_name,
+    customer_email: order.customer_email,
+    customer_user_id: order.customer_user_id,
+    expert_name: order.expert_name,
+    expert_display_name: order.expert_display_name,
+    expert_email: expertEmail,
+    expert_user_id: order.expert_user_id,
+    status: order.status,
+    updated_at: order.updated_at,
+    chat_status: order.chat_status,
+    chat_closed_at: order.chat_closed_at,
+    conversation_status: conversationStatus,
+    lastMessage: lastMessage ? {
+      message_content: lastMessage.message_content.substring(0, 50),
+      created_at: lastMessage.created_at,
+      sender_id: lastMessage.sender_id,
+    } : null,
+    unreadCount,
+  };
 });
 
     perfLogger.end('conversations.enrichment', {
