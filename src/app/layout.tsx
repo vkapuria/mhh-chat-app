@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google"; // Changed from Geist
 import "./globals.css";
 import { Toaster } from 'sonner';
+import { OpenPanelProvider } from '@/lib/openpanel';
 
 // Changed from Geist to Inter
 const inter = Inter({
@@ -24,6 +25,7 @@ export default function RootLayout({
       <body
         className={inter.className}
       >
+      <OpenPanelProvider />
         {children}
         <Toaster position="top-right" richColors />
       </body>

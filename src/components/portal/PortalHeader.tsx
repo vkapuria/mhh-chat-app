@@ -22,9 +22,9 @@ export function PortalHeader({ user }: PortalHeaderProps) {
   };
 
   return (
-    <header className="bg-white border-b border-slate-200 px-6 py-4">
+    <header className="sticky top-0 z-50 bg-white border-b border-slate-200 px-4 md:px-6 py-3 md:py-4 shadow-sm">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-slate-900">
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900">
           {getPageTitle()}
         </h1>
         <UserProfileDropdown userType={user.user_type} />
