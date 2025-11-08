@@ -10,6 +10,8 @@ import { MessagesSkeleton } from '@/components/loaders/MessagesSkeleton';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import PullToRefresh from 'react-pull-to-refresh';
 import { ConversationListGrouped } from '@/components/messages/ConversationListGrouped';
+import { trackChatOpened } from '@/lib/analytics';
+
 
 interface Conversation {
   id: string;
@@ -85,6 +87,16 @@ export default function MessagesPage() {
       setSelectedOrderId(orderIdFromUrl);
     }
   }, [searchParams]);
+
+  // Track when a chat is opened
+  useEffect(() => {
+    if (selectedOrderId && userId) {
+      trackChatOpened({
+        orderId: selectedOrderId,
+        userType: userType,
+      });
+    }
+  }, [selectedOrderId, userId, userType]);
 
   // ✨ Pull to refresh handler
   const handleRefresh = async () => {

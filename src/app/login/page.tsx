@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { trackUserLogin } from '@/lib/analytics';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -40,12 +41,20 @@ export default function LoginPage() {
       const userType = user?.user_metadata?.user_type;
       console.log('🟢 User type:', userType);
       
+      // Track user login
+      if (user) {
+        trackUserLogin({
+          userType: userType || 'customer',
+          userId: user.id,
+        });
+      }
+      
       if (userType === 'admin') {
         console.log('🟢 Redirecting to /admin');
-        window.location.href = '/admin';  // ← Use window.location instead
+        window.location.href = '/admin';
       } else {
         console.log('🟢 Redirecting to /');
-        window.location.href = '/dashboard';  // ← Use window.location instead
+        window.location.href = '/dashboard';
       }
     }
   };

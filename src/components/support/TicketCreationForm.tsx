@@ -9,6 +9,7 @@ import { Package, DollarSign, User, Calendar, IndianRupee, HelpCircle, PenSquare
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
+import { trackTicketCreated } from '@/lib/analytics';
 
 const ISSUE_TYPES = [
   'Question about order progress/status',
@@ -98,6 +99,13 @@ export function TicketCreationForm({ order, onSuccess, onCancel }: TicketCreatio
       const result = await response.json();
 
       if (result.success) {
+        // Track the event
+        trackTicketCreated({
+          orderId: order.id,
+          issueType: issueType,
+          userType: userType || 'customer',
+        });
+        
         toast.success('Support ticket created successfully!');
         onSuccess();
       } else {

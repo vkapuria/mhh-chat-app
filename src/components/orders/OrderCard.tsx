@@ -6,6 +6,7 @@ import { ContactSupportModal } from '@/components/support/ContactSupportModal';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { CheckCircleIcon, ClockIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { trackOrderViewed } from '@/lib/analytics';
 
 interface OrderCardProps {
   order: {
@@ -200,22 +201,31 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
 
       {/* Actions Block */}
       <div className="flex flex-col gap-2"> 
-        {canChat ? (
-          <Link href={`/messages/${order.id}`} className="w-full">
-            <Button
-              variant="default"
-              className="w-full font-semibold bg-slate-900 text-white hover:bg-primary"
-            >
-              <img src="/icons/chat-bubble.svg" alt="Chat" className="w-6 h-6 mr-1" />
-              {userType === 'expert' ? 'Chat with Customer' : 'Chat with Expert'}
-              {unreadCount > 0 && (
-                <span className="ml-2 bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                  {unreadCount}
-                </span>
-              )}
-            </Button>
-          </Link>
-        ) : (
+      {canChat ? (
+        <Link 
+          href={`/messages/${order.id}`} 
+          className="w-full"
+          onClick={() => {
+            trackOrderViewed({
+              orderId: order.id,
+              userType: userType,
+            });
+          }}
+        >
+          <Button
+            variant="default"
+            className="w-full font-semibold bg-slate-900 text-white hover:bg-primary"
+          >
+            <img src="/icons/chat-bubble.svg" alt="Chat" className="w-6 h-6 mr-1" />
+            {userType === 'expert' ? 'Chat with Customer' : 'Chat with Expert'}
+            {unreadCount > 0 && (
+              <span className="ml-2 bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
+                {unreadCount}
+              </span>
+            )}
+          </Button>
+        </Link>
+      ) : (
           <Button 
             variant="outline" 
             className="w-full" 
