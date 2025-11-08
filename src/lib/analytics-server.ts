@@ -6,7 +6,7 @@ let serverOpClient: OpenPanel | null = null;
 function getServerOpenPanel() {
   if (!serverOpClient) {
     const clientId = process.env.NEXT_PUBLIC_OPENPANEL_CLIENT_ID;
-    const clientSecret = process.env.NEXT_PUBLIC_OPENPANEL_SECRET;
+    const clientSecret = process.env.OPENPANEL_SECRET; // ✅ No NEXT_PUBLIC_ prefix for server secrets
     
     console.log('🔍 OpenPanel Server Init:', {
       hasClientId: !!clientId,
