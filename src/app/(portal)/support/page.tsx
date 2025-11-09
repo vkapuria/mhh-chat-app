@@ -52,6 +52,18 @@ export default function SupportPage() {
     }
   }, [allTickets, initializeFromTickets]);
 
+  // Polling backup: Check for new replies every 30 seconds
+  useEffect(() => {
+    if (!data?.tickets) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 Polling for ticket updates...');
+      mutate(); // Re-fetch tickets
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [data?.tickets, mutate]);
+
   // Filter tickets on frontend based on selected tab
   const tickets = statusFilter === 'all' 
     ? allTickets
