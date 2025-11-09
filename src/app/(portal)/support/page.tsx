@@ -1,5 +1,7 @@
 'use client';
 
+import { useUnreadTicketsStore } from '@/store/unread-tickets-store';
+import { useEffect } from 'react'; // Already imported, just make sure
 import { useState } from 'react';
 import useSWR from 'swr';
 import { useRouter } from 'next/navigation';
@@ -38,8 +40,17 @@ export default function SupportPage() {
     fetcher
   );
 
-  // Get all tickets
+    // Get all tickets
   const allTickets = data?.tickets || [];
+
+  // Initialize unread store from server data
+  const initializeFromTickets = useUnreadTicketsStore((state) => state.initializeFromTickets);
+
+  useEffect(() => {
+    if (allTickets.length > 0) {
+      initializeFromTickets(allTickets);
+    }
+  }, [allTickets, initializeFromTickets]);
 
   // Filter tickets on frontend based on selected tab
   const tickets = statusFilter === 'all' 

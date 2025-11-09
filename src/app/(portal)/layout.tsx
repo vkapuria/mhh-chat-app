@@ -9,6 +9,9 @@ import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
+import { useTicketRealtime } from '@/hooks/useTicketRealtime';
+import { useAuth } from '@/hooks/useAuth';
+
 export default function PortalLayout({
   children,
 }: {
@@ -18,7 +21,8 @@ export default function PortalLayout({
   const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
-
+  const { user: authUser } = useAuth(); // Renamed to avoid conflict
+  useTicketRealtime(authUser?.id || null);
   useEffect(() => {
     checkUser();
   }, []);
