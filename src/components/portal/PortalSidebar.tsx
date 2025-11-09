@@ -19,6 +19,7 @@ import { User } from '@/types/user';
 import { LifeBuoy } from 'lucide-react';
 import { UserProfileModal } from '../user/UserProfileModal';
 import { useUnreadTicketsStore } from '@/store/unread-tickets-store';
+import { useUnreadMessagesStore } from '@/store/unread-messages-store';
 
 // Avatar pools
 const CUSTOMER_AVATARS = [
@@ -73,6 +74,13 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const unreadTickets = useUnreadTicketsStore((state) => state.unreadTickets);
   const totalUnread = Object.values(unreadTickets).reduce(
     (total, ticket) => total + ticket.unreadCount,
+    0
+  );
+
+  // Get unread messages count
+  const unreadOrders = useUnreadMessagesStore((state) => state.unreadOrders);
+  const totalUnreadMessages = Object.values(unreadOrders).reduce(
+    (total, order) => total + order.unreadCount,
     0
   );
 
@@ -249,9 +257,16 @@ const displayName = (user as any).user_metadata?.display_name || user.name;
                       {item.name}
                     </span>
                     {/* Unread badge for Support */}
-                    {item.href === '/support' && totalUnread > 0 && (
+                    {/* Unread badge for Support */}
+                    {item.href === '/support' && totalUnreadTickets > 0 && (
                       <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {totalUnread > 9 ? '9+' : totalUnread}
+                        {totalUnreadTickets > 9 ? '9+' : totalUnreadTickets}
+                      </span>
+                    )}
+                    {/* Unread badge for Messages */}
+                    {item.href === '/messages' && totalUnreadMessages > 0 && (
+                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
                       </span>
                     )}
                   </div>

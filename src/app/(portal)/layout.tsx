@@ -11,6 +11,7 @@ import { Bars3Icon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useTicketRealtime } from '@/hooks/useTicketRealtime';
 import { useAuth } from '@/hooks/useAuth';
+import { useMessagesRealtime } from '@/hooks/useMessagesRealtime';
 
 export default function PortalLayout({
   children,
@@ -23,6 +24,7 @@ export default function PortalLayout({
   const router = useRouter();
   const { user: authUser } = useAuth(); // Renamed to avoid conflict
   useTicketRealtime(authUser?.id || null);
+  useMessagesRealtime(authUser?.id || null); // ← ADD THIS
   useEffect(() => {
     checkUser();
   }, []);

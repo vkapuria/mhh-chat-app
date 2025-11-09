@@ -11,7 +11,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline';
 import PullToRefresh from 'react-pull-to-refresh';
 import { ConversationListGrouped } from '@/components/messages/ConversationListGrouped';
 import { trackChatOpened } from '@/lib/analytics';
-
+import { useUnreadMessagesStore } from '@/store/unread-messages-store';
 
 interface Conversation {
   id: string;
@@ -66,6 +66,24 @@ export default function MessagesPage() {
   );
 
   const conversations = data?.conversations || [];
+
+  // Initialize unread store from server data
+  const initializeFromConversations = useUnreadMessagesStore((state) => state.initializeFromConversations);
+
+  useEffect(() => {
+    if (conversations.length > 0) {
+      initializeFromConversations(conversations);
+    }
+  }, [conversations, initializeFromConversations]);
+
+  // Mark order as read when chat is opened
+  const markOrderAsRead = useUnreadMessagesStore((state) => state.markOrderAsRead);
+
+  useEffect(() => {
+    if (selectedOrderId) {
+      markOrderAsRead(selectedOrderId);
+    }
+  }, [selectedOrderId, markOrderAsRead]);
 
   // Get user type and userId on mount
   useEffect(() => {

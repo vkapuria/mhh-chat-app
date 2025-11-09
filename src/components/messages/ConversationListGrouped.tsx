@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useUnreadMessagesStore } from '@/store/unread-messages-store';
 
 interface Conversation {
     id: string;
@@ -47,6 +48,7 @@ export function ConversationListGrouped({
   
   const [closedExpanded, setClosedExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const getOrderUnread = useUnreadMessagesStore((state) => state.getOrderUnread);
 
   // Filter and sort conversations
 const { filteredAndSorted, searchResultsCount } = useMemo(() => {
@@ -189,12 +191,10 @@ const grouped = filteredAndSorted;
 )}
 
         {/* Unread Badge */}
-        {conversation.unreadCount > 0 && (
-          <div className="mt-2">
-            <span className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-              {conversation.unreadCount} unread
-            </span>
-          </div>
+        {getOrderUnread(conversation.id) > 0 && (
+          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shrink-0">
+            {getOrderUnread(conversation.id) > 9 ? '9+' : getOrderUnread(conversation.id)}
+          </span>
         )}
       </div>
     );
