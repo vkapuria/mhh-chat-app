@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
-import { sendEmail, generateTicketStatusUpdateEmail } from '@/lib/email';
+import { sendEmail, generateTicketStatusChangeEmail } from '@/lib/email';
 import { formatTicketNumber } from '@/lib/ticket-utils';
 import { trackTicketResolvedServer } from '@/lib/analytics-server';
 
@@ -141,17 +141,30 @@ async function ticketDetailHandler(
       const isManualChange = oldTicket && ticket && oldTicket.status !== ticket.status;
 
       if (isManualChange) {
-        const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://chat.myhomeworkhelp.com'}/support`;
-        
-        const emailHtml = generateTicketStatusUpdateEmail({
-          recipientName: ticket.user_display_name,
-          ticketId: formatTicketNumber(ticket.id),
-          orderId: ticket.order_id,
-          issueType: ticket.issue_type,
-          oldStatus: oldTicket.status,
-          newStatus: ticket.status,
-          ticketUrl,
-        });
+        const ticketUrl = `https://chat.myhomeworkhelp.com/support/${ticketId}`;
+
+      // Format the updated date
+      const updatedAt = new Date().toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'America/Chicago',
+      });
+
+      const emailHtml = generateTicketStatusChangeEmail({
+        recipientName: ticket.user_display_name,
+        ticketId: ticketId,                        // UUID
+        ticketNumber: formatTicketNumber(ticketId), // TCK-284019
+        orderId: ticket.order_id,
+        issueType: ticket.issue_type,
+        oldStatus: oldTicket.status,
+        newStatus: ticket.status,
+        ticketUrl,
+        updatedAt,
+      });
 
         await sendEmail({
           to: ticket.user_email,

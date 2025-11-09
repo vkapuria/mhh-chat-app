@@ -121,21 +121,35 @@ async function repliesHandler(
 
       // Send email notification to user
       if (ticket) {
-        const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://chat.myhomeworkhelp.com'}/support`;
+        const ticketUrl = `https://chat.myhomeworkhelp.com/support/${ticket.id}`;
+        
+        // Format the reply timestamp
+        const repliedAt = new Date().toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'America/Chicago',
+        });
         
         const emailHtml = generateTicketReplyEmail({
           recipientName: ticket.user_display_name,
-          ticketId: formatTicketNumber(ticket.id),
+          ticketId: ticket.id,                        // UUID
+          ticketNumber: formatTicketNumber(ticket.id), // TCK-284019
           orderId: ticket.order_id,
           issueType: ticket.issue_type,
           replyMessage: message.trim(),
+          adminName: adminName,                        // From line 66
+          repliedAt: repliedAt,                        // Just now timestamp
           ticketUrl,
         });
 
         await sendEmail({
           to: ticket.user_email,
           replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
-          subject: `Response to Your Support Ticket - ${ticket.order_id}`,
+          subject: `💬 New Reply to Your Ticket - ${ticket.order_id}`,
           html: emailHtml,
         });
 

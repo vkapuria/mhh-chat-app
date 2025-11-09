@@ -129,21 +129,35 @@ const { error: replyError } = await supabase
         const { sendEmail, generateTicketReplyEmail } = await import('@/lib/email');
         const { formatTicketNumber } = await import('@/lib/ticket-utils');
 
-        const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL}/support/${ticket.id}`;
+        const ticketUrl = `https://chat.myhomeworkhelp.com/support/${ticket.id}`;
+        
+        // Format the reply timestamp
+        const repliedAt = new Date().toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'America/Chicago',
+        });
         
         const emailHtml = generateTicketReplyEmail({
           recipientName: ticket.user_display_name,
-          ticketId: formatTicketNumber(ticket.id),
+          ticketId: ticket.id,                        // UUID
+          ticketNumber: formatTicketNumber(ticket.id), // TCK-284019
           orderId: ticket.order_id,
           issueType: ticket.issue_type,
           replyMessage: event.text,
+          adminName: adminName,                        // Nick Kessler
+          repliedAt: repliedAt,                        // Nov 9, 2025 at 3:15 PM
           ticketUrl,
         });
 
         await sendEmail({
           to: ticket.user_email,
           replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
-          subject: `Response to Your Support Ticket - ${ticket.order_id}`,
+          subject: `💬 New Reply to Your Ticket - ${ticket.order_id}`,
           html: emailHtml,
         });
 

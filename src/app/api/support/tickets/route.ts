@@ -121,21 +121,36 @@ console.log('Order fetched:', order);
         }
 
         // Send confirmation email
+        // Send confirmation email
         try {
-          const ticketUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://mhh-chat-app.vercel.app'}/support/${ticket.id}`;
+          const ticketUrl = `https://chat.myhomeworkhelp.com/support/${ticket.id}`;
+          
+          // Format the created date
+          const createdAt = new Date(ticket.created_at).toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+            timeZone: 'America/Chicago', // CST/CDT
+          });
           
           const emailHtml = generateTicketConfirmationEmail({
             recipientName: displayName,
-            ticketId: formatTicketNumber(ticket.id),
+            ticketId: ticket.id,                           // UUID for URL
+            ticketNumber: formatTicketNumber(ticket.id),   // TCK-284019 for display
             orderId: order_id,
             issueType: issue_type,
             ticketUrl,
+            createdAt,                                      // Formatted date
+            status: 'submitted',                            // Initial status
           });
 
           await sendEmail({
             to: user.email!,
             replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
-            subject: `Support Ticket Created - ${order_id}`,
+            subject: `✓ Ticket Confirmed - ${formatTicketNumber(ticket.id)}`,
             html: emailHtml,
           });
 

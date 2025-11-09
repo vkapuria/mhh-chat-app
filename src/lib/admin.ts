@@ -99,7 +99,7 @@ export async function sendWelcomeEmailToUser(
   password: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const loginUrl = `${process.env.NEXT_PUBLIC_APP_URL}/login`;
+    const loginUrl = 'https://chat.myhomeworkhelp.com/login';
     
     const emailHtml = generateWelcomeEmail({
       name,

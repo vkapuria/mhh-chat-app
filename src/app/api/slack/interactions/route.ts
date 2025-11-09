@@ -75,7 +75,14 @@ export async function POST(request: NextRequest) {
         console.log('Parsed status:', newStatus);
         console.log('Parsed ticketId:', ticketId);
 
-      const { error: updateError } = await supabase
+      // Get old ticket status BEFORE updating
+        const { data: oldTicket } = await supabase
+        .from('support_tickets')
+        .select('status')
+        .eq('id', ticketId)
+        .single();
+
+        const { error: updateError } = await supabase
         .from('support_tickets')
         .update({
           status: newStatus,
@@ -115,39 +122,45 @@ export async function POST(request: NextRequest) {
         .eq('id', ticketId)
         .single();
 
-      if (ticket) {
-        try {
-          const { sendEmail, generateTicketStatusChangeEmail } = await import('@/lib/email');
-          const { formatTicketNumber } = await import('@/lib/ticket-utils');
-
-          let statusText = 'Open';
-          if (newStatus === 'in_progress') {
-            statusText = 'In Progress';
-          } else if (newStatus === 'resolved') {
-            statusText = 'Resolved';
+        if (ticket && oldTicket) {
+          try {
+            const { sendEmail, generateTicketStatusChangeEmail } = await import('@/lib/email');
+            const { formatTicketNumber } = await import('@/lib/ticket-utils');
+        
+            // Format the updated date
+            const updatedAt = new Date().toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+              timeZone: 'America/Chicago',
+            });
+        
+            const emailHtml = generateTicketStatusChangeEmail({
+              recipientName: ticket.user_display_name,
+              ticketId: ticket.id,                        // UUID
+              ticketNumber: formatTicketNumber(ticket.id), // TCK-284019
+              orderId: ticket.order_id,
+              issueType: ticket.issue_type,
+              oldStatus: oldTicket.status,                 // Old status from before update
+              newStatus: newStatus,                        // New status we just set
+              ticketUrl: `https://chat.myhomeworkhelp.com/support/${ticket.id}`,
+              updatedAt,
+            });
+        
+            await sendEmail({
+              to: ticket.user_email,
+              subject: `Ticket Status Updated - ${ticket.order_id}`,
+              html: emailHtml,
+            });
+        
+            console.log('✅ Status change email sent');
+          } catch (emailError) {
+            console.error('❌ Failed to send email:', emailError);
           }
-
-          const emailHtml = generateTicketStatusChangeEmail({
-            recipientName: ticket.user_display_name,
-            ticketId: formatTicketNumber(ticket.id),
-            orderId: ticket.order_id,
-            issueType: ticket.issue_type,
-            oldStatus: ticket.status,
-            newStatus: statusText,
-            ticketUrl: `${process.env.NEXT_PUBLIC_APP_URL}/support/${ticket.id}`,
-          });
-
-          await sendEmail({
-            to: ticket.user_email,
-            subject: `Ticket Status Updated - ${ticket.order_id}`,
-            html: emailHtml,
-          });
-
-          console.log('✅ Status change email sent');
-        } catch (emailError) {
-          console.error('❌ Failed to send email:', emailError);
         }
-      }
 
       return NextResponse.json({
         text: `✅ Status changed to: ${newStatus.replace('_', ' ')}`,

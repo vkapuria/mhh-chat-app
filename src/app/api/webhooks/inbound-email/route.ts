@@ -130,66 +130,36 @@ export async function POST(request: NextRequest) {
     console.log('🕐 Ticket timestamp updated');
 
     // Send email notification to admin
-try {
-  const { sendEmail } = await import('@/lib/email');
-  const ticketNumber = `TKT-${ticketId.substring(0, 8).toUpperCase()}`;
-  const adminEmail = 'orders@myhomeworkhelp.com';
-  
-  const emailHtml = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background-color: #4F46E5; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
-        .content { background-color: #f9fafb; padding: 20px; border: 1px solid #e5e7eb; }
-        .ticket-info { background-color: white; padding: 15px; border-left: 4px solid #4F46E5; margin: 15px 0; }
-        .reply-box { background-color: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
-        .footer { text-align: center; padding: 20px; color: #6b7280; font-size: 12px; }
-        .button { display: inline-block; padding: 12px 24px; background-color: #4F46E5; color: white; text-decoration: none; border-radius: 6px; margin: 15px 0; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <h2 style="margin: 0;">🔔 New Email Reply on Support Ticket</h2>
-        </div>
-        <div class="content">
-          <div class="ticket-info">
-            <p style="margin: 5px 0;"><strong>Ticket:</strong> ${ticketNumber}</p>
-            <p style="margin: 5px 0;"><strong>Order ID:</strong> ${ticket.order_id}</p>
-            <p style="margin: 5px 0;"><strong>From:</strong> ${ticket.user_display_name} (${ticket.user_email})</p>
-            <p style="margin: 5px 0;"><strong>Issue Type:</strong> ${ticket.issue_type}</p>
-          </div>
-          
-          <h3>New Reply (via Email):</h3>
-          <div class="reply-box">
-            <p style="white-space: pre-wrap;">${cleanedMessage}</p>
-          </div>
-          
-          <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://mhh-chat-app.vercel.app'}/admin/support/${ticketId}" class="button">
-            View Ticket in Admin Panel
-          </a>
-        </div>
-        <div class="footer">
-          <p>This is an automated notification from Homework Hub Support System</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
+    try {
+      const { sendEmail, generateAdminTicketReplyEmail } = await import('@/lib/email');
+      const { formatTicketNumber } = await import('@/lib/ticket-utils');
+      
+      const ticketNumber = formatTicketNumber(ticketId);
+      const adminEmail = 'orders@myhomeworkhelp.com';
+      const adminPanelUrl = `https://chat.myhomeworkhelp.com/admin/support/${ticketId}`;
+      
+      const emailHtml = generateAdminTicketReplyEmail({
+        ticketId,
+        ticketNumber,
+        orderId: ticket.order_id,
+        issueType: ticket.issue_type,
+        userName: ticket.user_display_name,
+        userEmail: ticket.user_email,
+        replyMessage: cleanedMessage,
+        replySource: 'email',
+        adminPanelUrl,
+      });
 
-  await sendEmail({
-    to: adminEmail,
-    subject: `New Reply (Email): ${ticket.issue_type} - ${ticketNumber}`,
-    html: emailHtml,
-  });
+      await sendEmail({
+        to: adminEmail,
+        subject: `📧 New Reply (Email): ${ticket.issue_type} - ${ticketNumber}`,
+        html: emailHtml,
+      });
 
-  console.log('✅ Admin email notification sent');
-} catch (emailError) {
-  console.error('❌ Failed to send admin notification email:', emailError);
-}
+      console.log('✅ Admin email notification sent');
+    } catch (emailError) {
+      console.error('❌ Failed to send admin notification email:', emailError);
+    }
 
     // Post to Slack thread if ticket has one
 if (ticket.slack_thread_ts) {

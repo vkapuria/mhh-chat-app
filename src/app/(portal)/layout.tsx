@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types/user';
 import { PortalSidebar } from '@/components/portal/PortalSidebar';
-import { PortalHeader } from '@/components/portal/PortalHeader';
 import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Bars3Icon } from '@heroicons/react/24/outline';
@@ -93,38 +92,37 @@ export default function PortalLayout({
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header - Logo Left | Title Center | Burger Right */}
-<header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
-  <div className="flex items-center justify-between px-4 py-3 relative">
-    {/* Logo - Left */}
-    <Image
-      src="/icons/mhh-logo.png"
-      alt="Homework Hub"
-      width={80}
-      height={44}
-      className="object-contain"
-    />
-    
-    {/* Title - Centered (absolute positioning) */}
-    <div className="absolute left-1/2 transform -translate-x-1/2">
-      <h1 className="font-bold text-lg text-slate-900 whitespace-nowrap">
-        Homework Hub
-      </h1>
-    </div>
-    
-    {/* Burger Menu - Right */}
-    <button 
-      onClick={() => setMobileMenuOpen(true)}
-      className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-10"
-      aria-label="Open menu"
-    >
-      <Bars3Icon className="w-6 h-6 text-slate-700" />
-    </button>
-  </div>
-</header>
+          <header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
+            <div className="flex items-center justify-between px-4 py-3 relative">
+              {/* Logo - Left */}
+              <Image
+                src="/icons/mhh-logo.png"
+                alt="Homework Hub"
+                width={80}
+                height={44}
+                className="object-contain"
+              />
+              
+              {/* Title - Centered (absolute positioning) */}
+              <div className="absolute left-1/2 transform -translate-x-1/2">
+                <h1 className="font-bold text-lg text-slate-900 whitespace-nowrap">
+                  Homework Hub
+                </h1>
+              </div>
+              
+              {/* Burger Menu - Right */}
+              <button 
+                onClick={() => setMobileMenuOpen(true)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-10"
+                aria-label="Open menu"
+              >
+                <Bars3Icon className="w-6 h-6 text-slate-700" />
+              </button>
+            </div>
+          </header>
 
           {/* Desktop Header */}
           <div className="hidden md:block">
-            <PortalHeader user={user} />
           </div>
 
           <main className="flex-1 overflow-y-auto">
