@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
-import { User } from '@/types/user';
+import { useAuthStore } from '@/store/auth-store';
 import { PortalSidebar } from '@/components/portal/PortalSidebar';
 import { PresenceProvider } from '@/components/providers/PresenceProvider';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useTicketRealtime } from '@/hooks/useTicketRealtime';
-import { useAuth } from '@/hooks/useAuth';
 import { useMessagesRealtime } from '@/hooks/useMessagesRealtime';
 
 export default function PortalLayout({
@@ -18,53 +16,28 @@ export default function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
-  const { user: authUser } = useAuth(); // Renamed to avoid conflict
-  useTicketRealtime(authUser?.id || null);
-  useMessagesRealtime(authUser?.id || null); // ← ADD THIS
+  
+  // Get user from global store (no API call!)
+  const { user, loading } = useAuthStore();
+  
+  // Setup realtime subscriptions
+  useTicketRealtime(user?.id || null);
+  useMessagesRealtime(user?.id || null);
+
+  // Redirect if not authenticated or if admin
   useEffect(() => {
-    checkUser();
-  }, []);
-
-  async function checkUser() {
-    try {
-      const { data: { user: authUser }, error } = await supabase.auth.getUser();
-
-      if (error || !authUser) {
+    if (!loading) {
+      if (!user) {
         router.push('/login');
-        return;
-      }
-
-      // Check if admin trying to access portal
-      const userType = authUser.user_metadata?.user_type;
-      if (userType === 'admin') {
+      } else if (user.user_type === 'admin') {
         router.push('/admin');
-        return;
       }
-
-      // Map auth user to our User type
-      const mappedUser: User = {
-        id: authUser.id,
-        email: authUser.email!,
-        name: authUser.user_metadata?.name || 'User',
-        display_name: authUser.user_metadata?.display_name || 'User',
-        user_type: userType || 'customer',
-        expert_id: authUser.user_metadata?.expert_id,
-        created_at: authUser.created_at,
-      };
-
-      setUser(mappedUser);
-    } catch (error) {
-      console.error('Auth check error:', error);
-      router.push('/login');
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [user, loading, router]);
 
+  // Show loading only on initial load
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -76,19 +49,20 @@ export default function PortalLayout({
     );
   }
 
-  if (!user) {
+  // Don't render if no user
+  if (!user || user.user_type === 'admin') {
     return null;
   }
 
   return (
     <PresenceProvider>
       <div className="flex h-screen bg-slate-50">
-        {/* Desktop Sidebar - Hidden on Mobile */}
+        {/* Desktop Sidebar */}
         <div className="hidden md:block">
           <PortalSidebar user={user} />
         </div>
 
-        {/* Mobile Sidebar - Sheet/Drawer */}
+        {/* Mobile Sidebar */}
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetContent side="left" className="p-0 w-80">
             <PortalSidebar user={user} onNavigate={() => setMobileMenuOpen(false)} />
@@ -97,10 +71,9 @@ export default function PortalLayout({
 
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header - Logo Left | Title Center | Burger Right */}
+          {/* Mobile Header */}
           <header className="md:hidden sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
             <div className="flex items-center justify-between px-4 py-3 relative">
-              {/* Logo - Left */}
               <Image
                 src="/icons/mhh-logo.png"
                 alt="Homework Hub"
@@ -108,15 +81,11 @@ export default function PortalLayout({
                 height={44}
                 className="object-contain"
               />
-              
-              {/* Title - Centered (absolute positioning) */}
               <div className="absolute left-1/2 transform -translate-x-1/2">
                 <h1 className="font-bold text-lg text-slate-900 whitespace-nowrap">
                   Homework Hub
                 </h1>
               </div>
-              
-              {/* Burger Menu - Right */}
               <button 
                 onClick={() => setMobileMenuOpen(true)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors z-10"
@@ -126,10 +95,6 @@ export default function PortalLayout({
               </button>
             </div>
           </header>
-
-          {/* Desktop Header */}
-          <div className="hidden md:block">
-          </div>
 
           <main className="flex-1 overflow-y-auto">
             {children}

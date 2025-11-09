@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase';
+import { useAuthStore } from '@/store/auth-store';
 import { AdminNav } from '@/components/admin/AdminNav';
 
 export default function AdminLayout({
@@ -11,46 +11,19 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { user, loading, signOut } = useAuthStore();
 
+  // Redirect if not admin
   useEffect(() => {
-    checkAdminAccess();
-  }, []);
-
-  async function checkAdminAccess() {
-    console.log('🟣 Admin layout: Checking admin access');
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      console.log('🟣 Admin layout: User data:', user);
-      console.log('🟣 Admin layout: Error:', error);
-  
-      if (error || !user) {
-        console.log('🔴 Admin layout: No user, redirecting to login');
+    if (!loading) {
+      if (!user) {
         router.push('/login?redirect=/admin');
-        return;
-      }
-  
-      // Check if user is admin
-      const userType = user.user_metadata?.user_type;
-      console.log('🟣 Admin layout: User type:', userType);
-      
-      if (userType !== 'admin') {
-        console.log('🔴 Admin layout: Not admin, redirecting to home');
+      } else if (user.user_type !== 'admin') {
         alert('Access denied. Admin privileges required.');
         router.push('/');
-        return;
       }
-  
-      console.log('🟢 Admin layout: Admin access granted!');
-      setIsAdmin(true);
-    } catch (error) {
-      console.error('🔴 Admin layout: Error during check:', error);
-      router.push('/login');
-    } finally {
-      setLoading(false);
     }
-  }
+  }, [user, loading, router]);
 
   if (loading) {
     return (
@@ -63,13 +36,12 @@ export default function AdminLayout({
     );
   }
 
-  if (!isAdmin) {
+  if (!user || user.user_type !== 'admin') {
     return null;
   }
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
@@ -79,7 +51,7 @@ export default function AdminLayout({
             </div>
             <button
               onClick={async () => {
-                await supabase.auth.signOut();
+                await signOut();
                 router.push('/login');
               }}
               className="text-sm text-red-600 hover:text-red-700 font-medium"
@@ -90,10 +62,8 @@ export default function AdminLayout({
         </div>
       </header>
 
-      {/* Navigation */}
       <AdminNav />
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
