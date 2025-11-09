@@ -69,10 +69,10 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const isExpert = user.user_type === 'expert';
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
-  // Get unread ticket count
+
   // Get unread ticket count - subscribe to entire store to force re-render
   const unreadTickets = useUnreadTicketsStore((state) => state.unreadTickets);
-  const totalUnread = Object.values(unreadTickets).reduce(
+  const totalUnreadTickets = Object.values(unreadTickets).reduce(
     (total, ticket) => total + ticket.unreadCount,
     0
   );
