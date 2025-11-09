@@ -45,16 +45,28 @@ export const useUnreadTicketsStore = create<UnreadTicketsStore>()(
 
       // Increment unread count when new admin reply comes in
       incrementUnread: (ticketId: string, replyTimestamp: string) => {
-        set((state) => ({
-          unreadTickets: {
-            ...state.unreadTickets,
-            [ticketId]: {
-              ticketId,
-              unreadCount: (state.unreadTickets[ticketId]?.unreadCount || 0) + 1,
-              lastReplyAt: replyTimestamp,
+        set((state) => {
+          const currentCount = state.unreadTickets[ticketId]?.unreadCount || 0;
+          const newCount = currentCount + 1;
+          
+          console.log('📊 Incrementing unread:', {
+            ticketId,
+            currentCount,
+            newCount,
+            timestamp: replyTimestamp
+          });
+          
+          return {
+            unreadTickets: {
+              ...state.unreadTickets,
+              [ticketId]: {
+                ticketId,
+                unreadCount: newCount,
+                lastReplyAt: replyTimestamp,
+              },
             },
-          },
-        }));
+          };
+        });
       },
 
       // Mark specific ticket as read (when user opens it)

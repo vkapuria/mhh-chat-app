@@ -69,7 +69,12 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
   // Get unread ticket count
-  const totalUnread = useUnreadTicketsStore((state) => state.getTotalUnread());
+  // Get unread ticket count - subscribe to entire store to force re-render
+  const unreadTickets = useUnreadTicketsStore((state) => state.unreadTickets);
+  const totalUnread = Object.values(unreadTickets).reduce(
+    (total, ticket) => total + ticket.unreadCount,
+    0
+  );
 
 
   // Navigation items based on user type
