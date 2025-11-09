@@ -105,100 +105,104 @@ const { filteredAndSorted, searchResultsCount } = useMemo(() => {
 
 const grouped = filteredAndSorted;
 
-  const renderConversation = (conversation: Conversation) => {
-    const isActive = conversation.id === activeOrderId;
-    const otherPartyName = userType === 'customer' 
-      ? (conversation.expert_display_name || conversation.expert_name)
-      : (conversation.customer_display_name || conversation.customer_name);
+const renderConversation = (conversation: Conversation) => {
+  const isActive = conversation.id === activeOrderId;
+  const otherPartyName = userType === 'customer' 
+    ? (conversation.expert_display_name || conversation.expert_name)
+    : (conversation.customer_display_name || conversation.customer_name);
 
-    const price = userType === 'expert' 
-      ? conversation.expert_fee || conversation.amount 
-      : conversation.amount;
+  const price = userType === 'expert' 
+    ? conversation.expert_fee || conversation.amount 
+    : conversation.amount;
+  
+  const unreadCount = getOrderUnread(conversation.id);
 
-    return (
-      <div
-        key={conversation.id}
-        onClick={() => onSelectConversation(conversation.id)}
-        className={`
-          p-4 border-b border-slate-200 cursor-pointer transition-colors
-          hover:bg-slate-50
-          ${isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}
-        `}
-      >
-        {/* Title & Price */}
-<div className="flex items-start justify-between gap-2 mb-2">
-  <h3 className="font-semibold text-slate-900 line-clamp-2 flex-1 text-sm">
-    {conversation.title}
-  </h3>
-  <span className="text-green-600 font-bold whitespace-nowrap text-sm">
-    ₹{price}
-  </span>
-</div>
-
-        {/* Task Code & Date */}
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
-          <span>{conversation.id}</span>
-          <span>•</span>
-          <span>📅 {new Date(conversation.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-        </div>
-
-        {/* Chatting with / Chat with */}
-        <div className="text-sm text-slate-600 mb-2">
-          <span className="text-slate-500">
-            {conversation.lastMessage ? 'Chatting with' : 'Chat with'} {userType === 'customer' ? 'Expert' : 'Customer'}:
-          </span>{' '}
-          <span className="bg-black text-white px-2 py-0.5 rounded text-xs font-medium">
-            {otherPartyName}
+  return (
+    <div
+      key={conversation.id}
+      onClick={() => onSelectConversation(conversation.id)}
+      className={`
+        p-4 border-b border-slate-200 cursor-pointer transition-colors
+        hover:bg-slate-50
+        ${isActive ? 'bg-blue-50 border-l-4 border-l-blue-600' : ''}
+      `}
+    >
+      {/* Title, Price & Unread Badge */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <h3 className="font-semibold text-slate-900 line-clamp-2 flex-1 text-sm">
+          {conversation.title}
+        </h3>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Unread Badge */}
+          {unreadCount > 0 && (
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+          {/* Price */}
+          <span className="text-green-600 font-bold whitespace-nowrap text-sm">
+            ₹{price}
           </span>
         </div>
+      </div>
 
-        {/* Last Message or Status */}
-{conversation.conversation_status === 'closed' ? (
-  // Closed chat messaging
-  <div className="space-y-1">
-    {conversation.lastMessage ? (
-      <div className="flex items-center gap-1.5 text-xs text-slate-500">
-        <span>💬</span>
-        <span>Last activity: {formatRelativeTime(conversation.lastMessage.created_at)}</span>
+      {/* Task Code & Date */}
+      <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+        <span>{conversation.id}</span>
+        <span>•</span>
+        <span>📅 {new Date(conversation.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
       </div>
-    ) : (
-      <div className="flex items-center gap-1.5 text-xs italic text-slate-400">
-        <span>🔇</span>
-        <span>No messages received</span>
+
+      {/* Chatting with / Chat with */}
+      <div className="text-sm text-slate-600 mb-2">
+        <span className="text-slate-500">
+          {conversation.lastMessage ? 'Chatting with' : 'Chat with'} {userType === 'customer' ? 'Expert' : 'Customer'}:
+        </span>{' '}
+        <span className="bg-black text-white px-2 py-0.5 rounded text-xs font-medium">
+          {otherPartyName}
+        </span>
       </div>
-    )}
-    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-      <span>🔒</span>
-      <span>
-        Closed {conversation.chat_closed_at 
-          ? formatRelativeTime(conversation.chat_closed_at)
-          : 'after completion'}
-      </span>
+
+      {/* Last Message or Status */}
+      {conversation.conversation_status === 'closed' ? (
+        // Closed chat messaging
+        <div className="space-y-1">
+          {conversation.lastMessage ? (
+            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+              <span>💬</span>
+              <span>Last activity: {formatRelativeTime(conversation.lastMessage.created_at)}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs italic text-slate-400">
+              <span>🔇</span>
+              <span>No messages received</span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+            <span>🔒</span>
+            <span>
+              Closed {conversation.chat_closed_at 
+                ? formatRelativeTime(conversation.chat_closed_at)
+                : 'after completion'}
+            </span>
+          </div>
+        </div>
+      ) : conversation.lastMessage ? (
+        // Active/Ready with messages
+        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+          <span>💬</span>
+          <span>Last activity: {formatRelativeTime(conversation.lastMessage.created_at)}</span>
+        </div>
+      ) : (
+        // Active/Ready without messages
+        <div className="flex items-center gap-1.5 text-xs italic text-slate-400">
+          <span>🔇</span>
+          <span>No messages yet</span>
+        </div>
+      )}
     </div>
-  </div>
-) : conversation.lastMessage ? (
-  // Active/Ready with messages
-  <div className="flex items-center gap-1.5 text-xs text-slate-500">
-    <span>💬</span>
-    <span>Last activity: {formatRelativeTime(conversation.lastMessage.created_at)}</span>
-  </div>
-) : (
-  // Active/Ready without messages
-  <div className="flex items-center gap-1.5 text-xs italic text-slate-400">
-    <span>🔇</span>
-    <span>No messages yet</span>
-  </div>
-)}
-
-        {/* Unread Badge */}
-        {getOrderUnread(conversation.id) > 0 && (
-          <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shrink-0">
-            {getOrderUnread(conversation.id) > 9 ? '9+' : getOrderUnread(conversation.id)}
-          </span>
-        )}
-      </div>
-    );
-  };
+  );
+};
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
