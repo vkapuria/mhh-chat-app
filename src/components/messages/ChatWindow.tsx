@@ -7,11 +7,9 @@ import { formatDistanceToNow } from 'date-fns';
 import { 
   PaperAirplaneIcon, 
   BellIcon,
-  CheckIcon,
   } from '@heroicons/react/24/outline';
-import { createClient } from '@supabase/supabase-js';
 import { trackMessageSent } from '@/lib/analytics';
-
+import { usePresenceStore } from '@/store/presence-store';
 
 interface Message {
   id: string;
@@ -33,9 +31,9 @@ interface ChatWindowProps {
   currentUserId: string;
   otherPartyName: string;
   otherPartyEmail?: string;
-  otherPartyId?: string;  // Add this!
-  isClosed?: boolean;  // ADD THIS
-  closedReason?: string;  // ADD THIS
+  otherPartyId?: string;
+  isClosed?: boolean;
+  closedReason?: string;
 }
 
 export function ChatWindow({
@@ -45,7 +43,7 @@ export function ChatWindow({
   currentUserId,
   otherPartyName,
   otherPartyEmail,
-  otherPartyId,  // Add this line!
+  otherPartyId,
   isClosed = false,
   closedReason,
 }: ChatWindowProps) {
@@ -54,23 +52,20 @@ export function ChatWindow({
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isOtherPartyOnline, setIsOtherPartyOnline] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isOtherPartyTyping, setIsOtherPartyTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const otherPartyTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Debug: Log state changes
-    useEffect(() => {
-      console.log('🎨 isOtherPartyTyping changed to:', isOtherPartyTyping);
-    }, [isOtherPartyTyping]);
-  // Add this new useEffect right after the state declarations (around line 50)
-useEffect(() => {
-  // Reset presence state when conversation changes
-  setIsOtherPartyOnline(false);
-  console.log('🔄 Conversation changed, resetting presence state');
-}, [orderId]);
+  // Use global presence store instead of local state
+  const isUserOnline = usePresenceStore((state) => state.isUserOnline);
+  const isOtherPartyOnline = otherPartyId ? isUserOnline(otherPartyId) : false;
+
+  // Debug: Log state changes
+  useEffect(() => {
+    console.log('🎨 isOtherPartyTyping changed to:', isOtherPartyTyping);
+  }, [isOtherPartyTyping]);
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -85,7 +80,6 @@ useEffect(() => {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // Mark any unread messages as read when user returns to window
         const unreadMessages = messages.filter(
           (msg) => !msg.is_read && msg.sender_id !== currentUserId
         );
@@ -105,10 +99,6 @@ useEffect(() => {
 
   // Set up real-time subscriptions
   useEffect(() => {
-    // IMMEDIATELY reset presence state when conversation changes
-    setIsOtherPartyOnline(false);
-    console.log('🔄 Conversation changed, resetting presence to false');
-
     fetchMessages();
     
     // Set up message subscription for this order
@@ -151,68 +141,16 @@ useEffect(() => {
       )
       .subscribe();
 
-    // Set up presence subscription for other party (ONLY if we have their ID)
-    let presenceChannel: ReturnType<typeof supabase.channel> | null = null;
-
-    if (otherPartyId) {
-      console.log('👥 Subscribing to other party presence:', otherPartyId);
-      console.log('📢 Subscribing to channel:', `presence-user-${otherPartyId}`);
-      
-      presenceChannel = supabase.channel(`presence-user-${otherPartyId}`, {
-        config: {
-          presence: {
-            key: currentUserId,
-          },
-        },
-      });
-
-      presenceChannel
-        .on('presence', { event: 'sync' }, () => {
-          const state = presenceChannel!.presenceState();
-          const onlineUsers = Object.keys(state);
-          
-          // Check if other party is online (they'll have their own ID as key)
-          const isOnline = onlineUsers.includes(otherPartyId);
-          setIsOtherPartyOnline(isOnline);
-          console.log('👥 Presence sync in ChatWindow:', { 
-            state, 
-            onlineUsers, 
-            otherPartyId,
-            isOnline 
-          });
-        })
-        .on('presence', { event: 'join' }, ({ key }) => {
-          console.log('✅ User joined presence in ChatWindow:', key);
-          if (key === otherPartyId) {
-            setIsOtherPartyOnline(true);
-          }
-        })
-        .on('presence', { event: 'leave' }, ({ key }) => {
-          console.log('❌ User left presence in ChatWindow:', key);
-          if (key === otherPartyId) {
-            setIsOtherPartyOnline(false);
-          }
-        })
-        .subscribe((status) => {
-          console.log('📡 ChatWindow subscription status:', status);
-        });
-    } else {
-      console.log('⚠️ No otherPartyId provided, keeping presence as false');
-    }
-
     // Set up typing indicator channel
     const typingChannel = supabase.channel(`typing-${orderId}`, {
       config: {
-        broadcast: { self: false }, // Don't receive our own typing events
+        broadcast: { self: false },
       },
     });
 
     typingChannel
       .on('broadcast', { event: 'typing' }, (payload) => {
         console.log('⌨️ Typing event received:', payload);
-        console.log('🔍 Debug - otherPartyId:', otherPartyId);
-        console.log('🔍 Debug - payload.user_id:', payload.payload.user_id);
-        console.log('🔍 Debug - Match?:', payload.payload.user_id === otherPartyId);
         
         // Only show typing if it's from the other party
         if (payload.payload.user_id === otherPartyId && payload.payload.is_typing) {
@@ -224,12 +162,11 @@ useEffect(() => {
             clearTimeout(otherPartyTypingTimeoutRef.current);
           }
           
-          // Auto-hide after 3 seconds
+          // Auto-hide after 5 seconds
           otherPartyTypingTimeoutRef.current = setTimeout(() => {
             setIsOtherPartyTyping(false);
           }, 5000);
         } else if (payload.payload.user_id === otherPartyId && !payload.payload.is_typing) {
-          // Immediately hide when user stops typing
           setIsOtherPartyTyping(false);
           if (otherPartyTypingTimeoutRef.current) {
             clearTimeout(otherPartyTypingTimeoutRef.current);
@@ -244,25 +181,19 @@ useEffect(() => {
         }
       });
 
-    // Cleanup function - CRITICAL!
+    // Cleanup
     return () => {
       console.log('🧹 Cleaning up channels for order:', orderId);
       supabase.removeChannel(messageChannel);
-      if (presenceChannel) {
-        supabase.removeChannel(presenceChannel);
-      }
       supabase.removeChannel(typingChannel);
       
-      // Clear timeouts
       if (otherPartyTypingTimeoutRef.current) {
         clearTimeout(otherPartyTypingTimeoutRef.current);
       }
       
-      // Reset state on cleanup too
-      setIsOtherPartyOnline(false);
       setIsOtherPartyTyping(false);
     };
-  }, [orderId, currentUserId, otherPartyId]);  // Re-run when ANY of these change
+  }, [orderId, currentUserId, otherPartyId]);
 
   async function fetchMessages() {
     try {
@@ -284,7 +215,6 @@ useEffect(() => {
       if (data.success) {
         setMessages(data.messages || []);
         
-        // Mark unread messages as read ONLY if window is visible/focused
         if (document.visibilityState === 'visible') {
           const unreadMessages = data.messages.filter(
             (msg: Message) => !msg.is_read && msg.sender_id !== currentUserId
@@ -335,14 +265,6 @@ useEffect(() => {
         return;
       }
   
-      console.log('Sending message with data:', {
-        order_id: orderId,
-        sender_type: currentUserType,
-        sender_id: currentUserId,
-        sender_name: user.user_metadata?.name || 'User',
-        sender_display_name: user.user_metadata?.display_name || 'User',
-      });
-  
       const response = await fetch('/api/messages', {
         method: 'POST',
         headers: { 
@@ -361,7 +283,6 @@ useEffect(() => {
       });
   
       if (response.ok) {
-        // Track message sent
         trackMessageSent({
           orderId: orderId,
           userType: currentUserType,
@@ -371,7 +292,6 @@ useEffect(() => {
         setNewMessage('');
         console.log('✅ Message sent successfully');
         
-        // If notify requested, send email
         if (notify && otherPartyEmail) {
           console.log('📧 Sending notification email...');
           await fetch('/api/messages/notify', {
@@ -401,7 +321,6 @@ useEffect(() => {
     }
   }
 
-  // Store channel reference so we can broadcast to it
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
   function broadcastTyping(isTyping: boolean) {
@@ -425,18 +344,15 @@ useEffect(() => {
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     setNewMessage(e.target.value);
     
-    // Broadcast typing when user types
     if (e.target.value.trim() && !isTyping) {
       setIsTyping(true);
       broadcastTyping(true);
     }
     
-    // Clear existing timeout
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Stop typing indicator after 1 second of inactivity
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
       broadcastTyping(false);
@@ -461,42 +377,40 @@ useEffect(() => {
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Header */}
-<div className="border-b border-slate-200 bg-white">
-  {/* Status Bar - Show for everyone */}
-  {isOtherPartyOnline ? (
-    // Online - Green bar
-    <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-2 border-b border-green-200">
-      <div className="flex items-center justify-center gap-2">
-        <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-        <span className="text-sm font-semibold text-green-700">
-          {currentUserType === 'customer' ? 'Expert' : 'Customer'} Online
-        </span>
-      </div>
-    </div>
-  ) : (
-    // Offline - Black bar with red dot
-    <div className="bg-slate-800 px-6 py-2 border-b border-slate-700">
-      <div className="flex items-center justify-center gap-2">
-        <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-        <span className="text-sm font-medium text-white">
-          {currentUserType === 'customer' ? 'Expert' : 'Customer'} Offline
-        </span>
-      </div>
-    </div>
-  )}
+      <div className="border-b border-slate-200 bg-white">
+        {/* Status Bar */}
+        {isOtherPartyOnline ? (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 px-6 py-2 border-b border-green-200">
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+              <span className="text-sm font-semibold text-green-700">
+                {currentUserType === 'customer' ? 'Expert' : 'Customer'} Online
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-slate-800 px-6 py-2 border-b border-slate-700">
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
+              <span className="text-sm font-medium text-white">
+                {currentUserType === 'customer' ? 'Expert' : 'Customer'} Offline
+              </span>
+            </div>
+          </div>
+        )}
 
-  {/* Title Bar - Hidden on mobile (shown in mobile header instead) */}
-  <div className="hidden md:block px-6 py-4 bg-slate-50 border-b border-slate-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <h2 className="text-lg font-semibold text-slate-900">{orderTitle}</h2>
-        <p className="text-sm text-slate-600">
-          Chatting with {otherPartyName}
-        </p>
+        {/* Title Bar - Hidden on mobile */}
+        <div className="hidden md:block px-6 py-4 bg-slate-50 border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">{orderTitle}</h2>
+              <p className="text-sm text-slate-600">
+                Chatting with {otherPartyName}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
-</div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -530,7 +444,7 @@ useEffect(() => {
                       {message.message_content}
                     </p>
                   </div>
-                  {/* Status line: timestamp and read status */}
+                  {/* Status line */}
                   <div className="flex items-center gap-2 mt-1 px-1 text-xs">
                     {isOwn && (
                       <div className="flex items-center gap-1">
@@ -617,7 +531,7 @@ useEffect(() => {
         <div ref={messagesEndRef} />
       </div>
 
-       {/* Typing Indicator - Above Input */}
+      {/* Typing Indicator */}
       <AnimatePresence>
         {isOtherPartyTyping && (
           <div className="px-6 py-0 flex justify-center">
@@ -656,70 +570,70 @@ useEffect(() => {
       </AnimatePresence>
 
       {/* Input or Closed Banner */}
-{isClosed ? (
-  <div className="px-6 py-8 border-t border-slate-200 bg-slate-50">
-    <div className="max-w-md mx-auto text-center space-y-4">
-      <div className="flex justify-center">
-        <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center">
-          <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
+      {isClosed ? (
+        <div className="px-6 py-8 border-t border-slate-200 bg-slate-50">
+          <div className="max-w-md mx-auto text-center space-y-4">
+            <div className="flex justify-center">
+              <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 mb-2">
+                Chat Closed
+              </h3>
+              <p className="text-sm text-slate-600">
+                {closedReason || 'This conversation was auto-closed 48 hours after order completion.'}
+              </p>
+            </div>
+            <div className="pt-4">
+              <button
+                onClick={() => window.location.href = '/support'}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Contact Support
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
-      <div>
-        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-          Chat Closed
-        </h3>
-        <p className="text-sm text-slate-600">
-          {closedReason || 'This conversation was auto-closed 48 hours after order completion.'}
-        </p>
-      </div>
-      <div className="pt-4">
-        <button
-          onClick={() => window.location.href = '/support'}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-          </svg>
-          Contact Support
-        </button>
-      </div>
-    </div>
-  </div>
-) : (
-  <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
-    <div className="flex gap-3">
-      <textarea
-        value={newMessage}
-        onChange={handleInputChange}
-        onKeyPress={handleKeyPress}
-        placeholder="Type your message..."
-        className="flex-1 px-4 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-        rows={2}
-        disabled={sending}
-      />
-      <div className="flex flex-col gap-2">
-        <button
-          onClick={() => sendMessage(false)}
-          disabled={sending || !newMessage.trim()}
-          className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-        >
-          <PaperAirplaneIcon className="w-5 h-5" />
-          <span className="hidden sm:inline">Send</span>
-        </button>
-        <button
-          onClick={() => sendMessage(true)}
-          disabled={sending || !newMessage.trim()}
-          className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-        >
-          <BellIcon className="w-5 h-5" />
-          <span className="hidden sm:inline">Notify</span>
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      ) : (
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50">
+          <div className="flex gap-3">
+            <textarea
+              value={newMessage}
+              onChange={handleInputChange}
+              onKeyPress={handleKeyPress}
+              placeholder="Type your message..."
+              className="flex-1 px-4 py-2 border border-slate-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              rows={2}
+              disabled={sending}
+            />
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => sendMessage(false)}
+                disabled={sending || !newMessage.trim()}
+                className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+              >
+                <PaperAirplaneIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Send</span>
+              </button>
+              <button
+                onClick={() => sendMessage(true)}
+                disabled={sending || !newMessage.trim()}
+                className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+              >
+                <BellIcon className="w-5 h-5" />
+                <span className="hidden sm:inline">Notify</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,32 +3,35 @@
 import { useState, useMemo } from 'react';
 import { ChevronDownIcon, ChevronRightIcon, MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useUnreadMessagesStore } from '@/store/unread-messages-store';
+import { usePresenceStore } from '@/store/presence-store';
 
 interface Conversation {
-    id: string;
-    title: string;
-    task_code: string;
-    order_date: string;
-    amount: number;
-    expert_fee?: number;
-    customer_name?: string;
-    customer_display_name?: string;
-    customer_email?: string;
-    expert_name?: string;
-    expert_display_name?: string;
-    expert_email?: string;
-    status?: string;
-    updated_at?: string;  // ADD THIS LINE
-    chat_status?: string;
-    chat_closed_at?: string;
-    conversation_status?: 'active' | 'ready' | 'closed';
-    lastMessage?: {
-      sender_id: string;
-      message_content: string;
-      created_at: string;
-    };
-    unreadCount: number;
-  }
+  id: string;
+  title: string;
+  task_code: string;
+  order_date: string;
+  amount: number;
+  expert_fee?: number;
+  customer_name?: string;
+  customer_display_name?: string;
+  customer_email?: string;
+  customer_user_id?: string;  // ← ADD THIS
+  expert_name?: string;
+  expert_display_name?: string;
+  expert_email?: string;
+  expert_user_id?: string;  // ← ADD THIS
+  status?: string;
+  updated_at?: string;
+  chat_status?: string;
+  chat_closed_at?: string;
+  conversation_status?: 'active' | 'ready' | 'closed';
+  lastMessage?: {
+    sender_id: string;
+    message_content: string;
+    created_at: string;
+  };
+  unreadCount: number;
+}
 
 interface ConversationListGroupedProps {
   conversations: Conversation[];
@@ -49,6 +52,7 @@ export function ConversationListGrouped({
   const [closedExpanded, setClosedExpanded] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const getOrderUnread = useUnreadMessagesStore((state) => state.getOrderUnread);
+  const isUserOnline = usePresenceStore((state) => state.isUserOnline);
 
   // Filter and sort conversations
 const { filteredAndSorted, searchResultsCount } = useMemo(() => {
@@ -153,14 +157,32 @@ const renderConversation = (conversation: Conversation) => {
         <span>📅 {new Date(conversation.order_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
       </div>
 
-      {/* Chatting with / Chat with */}
+      {/* Chatting with / Chat with - WITH ONLINE STATUS */}
       <div className="text-sm text-slate-600 mb-2">
         <span className="text-slate-500">
           {conversation.lastMessage ? 'Chatting with' : 'Chat with'} {userType === 'customer' ? 'Expert' : 'Customer'}:
         </span>{' '}
-        <span className="bg-black text-white px-2 py-0.5 rounded text-xs font-medium">
-          {otherPartyName}
-        </span>
+        <div className="inline-flex items-center gap-2">
+          <span className="bg-black text-white px-2 py-0.5 rounded text-xs font-medium">
+            {otherPartyName}
+          </span>
+          {/* Online Indicator */}
+          {(() => {
+            const otherPartyId = userType === 'customer' 
+              ? conversation.expert_user_id 
+              : conversation.customer_user_id;
+            
+            if (otherPartyId && isUserOnline(otherPartyId)) {
+              return (
+                <span className="flex items-center gap-1 text-xs">
+                  <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                  <span className="text-green-600 font-medium">Online</span>
+                </span>
+              );
+            }
+            return null;
+          })()}
+        </div>
       </div>
 
       {/* Last Message or Status */}
