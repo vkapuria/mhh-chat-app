@@ -422,17 +422,23 @@ export function ChatWindow({
           messages.map((message) => {
             const isOwn = message.sender_id === currentUserId;
             
+            // Determine the correct display name
+            const displayName = isOwn 
+              ? 'You' 
+              : (message.sender_display_name && message.sender_display_name !== 'User' 
+                  ? message.sender_display_name 
+                  : otherPartyName);
+            
             return (
               <div
                 key={message.id}
                 className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
               >
                 <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
-                  {!isOwn && (
-                    <span className="text-xs text-slate-500 mb-1 px-1">
-                      {message.sender_display_name}
-                    </span>
-                  )}
+                  {/* Always show name, even for own messages */}
+                  <span className="text-xs text-slate-500 mb-1 px-1">
+                    {displayName}
+                  </span>
                   <div
                     className={`rounded-2xl px-4 py-2 ${
                       isOwn
@@ -446,83 +452,83 @@ export function ChatWindow({
                   </div>
                   {/* Status line */}
                   <div className="flex items-center gap-2 mt-1 px-1 text-xs">
-                    {isOwn && (
-                      <div className="flex items-center gap-1">
-                        <AnimatePresence mode="wait">
-                          {message.is_read ? (
-                            <motion.div
-                              key="read"
-                              initial={{ y: 10, opacity: 0 }}
-                              animate={{ y: 0, opacity: 1 }}
-                              exit={{ y: -10, opacity: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="flex items-center gap-1"
-                            >
-                              <div className="flex items-center -space-x-1">
-                                <motion.img
-                                  src="/icons/read.svg"
-                                  alt=""
-                                  className="w-3 h-3"
-                                  initial={{ y: 10, opacity: 0 }}
-                                  animate={{ y: 0, opacity: 1 }}
-                                  transition={{ duration: 0.3, delay: 0 }}
-                                />
-                                <motion.img
-                                  src="/icons/read.svg"
-                                  alt=""
-                                  className="w-3 h-3"
-                                  initial={{ y: 10, opacity: 0 }}
-                                  animate={{ y: 0, opacity: 1 }}
-                                  transition={{ duration: 0.3, delay: 0.15 }}
-                                />
-                              </div>
-                              <motion.span
-                                className="text-blue-600 font-medium"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                transition={{ duration: 0.3, delay: 0.3 }}
-                              >
-                                Read
-                              </motion.span>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="sent"
-                              initial={{ y: 10, opacity: 0 }}
-                              animate={{ y: 0, opacity: 1 }}
-                              exit={{ y: -10, opacity: 0 }}
-                              transition={{ duration: 0.3 }}
-                              className="flex items-center gap-1"
-                            >
-                              <img src="/icons/sent.svg" alt="" className="w-3 h-3" />
-                              <span className="text-slate-500">Sent</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    )}
-                    
-                    {isOwn && message.notification_sent && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <div className="flex items-center gap-1">
-                          <img src="/icons/gmail.svg" alt="" className="w-3 h-3" />
-                          <span className="text-slate-500">Emailed</span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {(isOwn || true) && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-slate-400">
-                          {formatDistanceToNow(new Date(message.created_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </>
-                    )}
-                  </div>
+  {isOwn && (
+    <>
+      {/* Show read status ONLY for non-emailed messages */}
+      {!message.notification_sent && (
+        <div className="flex items-center gap-1">
+          <AnimatePresence mode="wait">
+            {message.is_read ? (
+              <motion.div
+                key="read"
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -10, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-1"
+              >
+                <div className="flex items-center -space-x-1">
+                  <motion.img
+                    src="/icons/read.svg"
+                    alt=""
+                    className="w-3 h-3"
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0 }}
+                  />
+                  <motion.img
+                    src="/icons/read.svg"
+                    alt=""
+                    className="w-3 h-3"
+                    initial={{ y: 10, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ duration: 0.3, delay: 0.15 }}
+                  />
+                </div>
+                <motion.span
+                  className="text-blue-600 font-medium"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3, delay: 0.3 }}
+                >
+                  Read
+                </motion.span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="sent"
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -10, opacity: 0 }}
+                transition={{ duration: 0.3 }}
+                className="flex items-center gap-1"
+              >
+                <img src="/icons/sent.svg" alt="" className="w-3 h-3" />
+                <span className="text-slate-500">Sent</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+      
+      {/* Show email indicator ONLY for emailed messages */}
+      {message.notification_sent && (
+        <div className="flex items-center gap-1">
+          <img src="/icons/gmail.svg" alt="" className="w-3 h-3" />
+          <span className="text-slate-500">Emailed</span>
+        </div>
+      )}
+    </>
+  )}
+  
+  {/* Timestamp - always show */}
+  <span className="text-slate-300">•</span>
+  <span className="text-slate-400">
+    {formatDistanceToNow(new Date(message.created_at), {
+      addSuffix: true,
+    })}
+  </span>
+</div>
                 </div>
               </div>
             );
