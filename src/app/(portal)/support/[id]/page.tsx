@@ -13,6 +13,7 @@ import Image from 'next/image';
 import {
   ArrowLeftIcon,
 } from '@heroicons/react/24/outline';
+import { useUnreadTicketsStore } from '@/store/unread-tickets-store';
 
 // Helper component for the status badge
 function StatusBadge({ status }: { status: string }) {
@@ -63,6 +64,15 @@ export default function CustomerTicketDetailPage() {
       abortController.abort();
     };
   }, [ticketId]);
+
+  // Mark ticket as read when page loads
+  const markTicketAsRead = useUnreadTicketsStore((state) => state.markTicketAsRead);
+
+  useEffect(() => {
+    if (ticketId) {
+      markTicketAsRead(ticketId);
+    }
+  }, [ticketId, markTicketAsRead]);
 
   const fetchCurrentUser = async () => {
     try {

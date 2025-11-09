@@ -18,6 +18,7 @@ import {
 import { User } from '@/types/user';
 import { LifeBuoy } from 'lucide-react';
 import { UserProfileModal } from '../user/UserProfileModal';
+import { useUnreadTicketsStore } from '@/store/unread-tickets-store';
 
 // Avatar pools
 const CUSTOMER_AVATARS = [
@@ -67,6 +68,9 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const isExpert = user.user_type === 'expert';
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
+  // Get unread ticket count
+  const totalUnread = useUnreadTicketsStore((state) => state.getTotalUnread());
+
 
   // Navigation items based on user type
   const navItems = [
@@ -239,6 +243,12 @@ const displayName = (user as any).user_metadata?.display_name || user.name;
                     <span className={`text-sm font-medium ${active ? 'text-white' : ''}`}>
                       {item.name}
                     </span>
+                    {/* Unread badge for Support */}
+                    {item.href === '/support' && totalUnread > 0 && (
+                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                        {totalUnread > 9 ? '9+' : totalUnread}
+                      </span>
+                    )}
                   </div>
 
                   {/* Description - expands on hover */}
