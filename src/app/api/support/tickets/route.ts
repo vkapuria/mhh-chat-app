@@ -150,14 +150,43 @@ console.log('Order fetched:', order);
           await sendEmail({
             to: user.email!,
             replyTo: `support+${ticket.id}@chueulkoia.resend.app`,
-            subject: `✓ Ticket Confirmed - ${formatTicketNumber(ticket.id)}`,
+            subject: `🎫 Support Ticket Created: TKT- ${formatTicketNumber(ticket.id)}`,
             html: emailHtml,
           });
 
           console.log('✅ Confirmation email sent');
-        } catch (emailError) {
-          console.error('❌ Failed to send email:', emailError);
-        }
+          } catch (emailError) {
+            console.error('❌ Failed to send email:', emailError);
+          }
+
+          // Send admin notification email
+          try {
+            const { generateAdminTicketCreatedEmail } = await import('@/lib/email');
+            
+            const adminTicketUrl = `https://chat.myhomeworkhelp.com/admin/support/${ticket.id}`;
+            
+            const adminEmailHtml = generateAdminTicketCreatedEmail({
+              ticketNumber: formatTicketNumber(ticket.id),
+              orderId: order_id,
+              orderTitle: order?.title || '',
+              issueType: issue_type,
+              userName: displayName,
+              userEmail: user.email!,
+              userType: userType,
+              message: message.trim(),
+              ticketUrl: adminTicketUrl,
+            });
+
+            await sendEmail({
+              to: 'orders@myhomeworkhelp.com',
+              subject: `🎫 New Ticket: ${issue_type} - ${formatTicketNumber(ticket.id)}`,
+              html: adminEmailHtml,
+            });
+
+            console.log('✅ Admin notification email sent');
+          } catch (adminEmailError) {
+            console.error('❌ Failed to send admin notification:', adminEmailError);
+          }
       }
 
       return NextResponse.json({

@@ -1643,3 +1643,183 @@ export function generateAdminTicketReplyEmail(params: {
     </html>
   `;
 }
+
+// Template: Admin notification - New ticket created
+export function generateAdminTicketCreatedEmail(params: {
+  ticketNumber: string;
+  orderId: string;
+  orderTitle: string;
+  issueType: string;
+  userName: string;
+  userEmail: string;
+  userType: string;
+  message: string;
+  ticketUrl: string;
+}) {
+  const { 
+    ticketNumber, orderId, orderTitle, issueType,
+    userName, userEmail, userType, message, ticketUrl
+  } = params;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>
+        body { 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          line-height: 1.7;
+          color: #2d3748;
+          margin: 0;
+          padding: 0;
+          background: #f7fafc;
+        }
+        .email-wrapper {
+          max-width: 600px;
+          margin: 40px auto;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 20px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+        }
+        .container { padding: 40px; }
+        .header { 
+          margin-bottom: 30px;
+          padding-bottom: 20px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .logo { width: 130px; height: auto; }
+        .alert-badge {
+          display: inline-block;
+          background: #dbeafe;
+          color: #1e40af;
+          padding: 8px 16px;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          margin-top: 15px;
+        }
+        .content { font-size: 15px; line-height: 1.7; color: #2d3748; }
+        .section-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #6b7280;
+          margin: 25px 0 12px 0;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .info-box {
+          background: #f7fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 12px 0;
+        }
+        .info-row {
+          display: flex;
+          padding: 8px 0;
+          border-bottom: 1px solid #e2e8f0;
+          font-size: 14px;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-label {
+          font-weight: 500;
+          color: #718096;
+          min-width: 110px;
+        }
+        .info-value {
+          color: #2d3748;
+          font-weight: 600;
+        }
+        .message-box {
+          background: #f7fafc;
+          border-left: 4px solid #4f46e5;
+          padding: 16px;
+          margin: 15px 0;
+          border-radius: 4px;
+          font-size: 14px;
+          line-height: 1.6;
+          color: #374151;
+          white-space: pre-wrap;
+        }
+        .view-btn {
+          display: inline-block;
+          background: #4f46e5;
+          color: #ffffff !important;
+          padding: 12px 24px;
+          text-decoration: none;
+          border-radius: 6px;
+          font-weight: 600;
+          font-size: 14px;
+          margin: 20px 0;
+        }
+        @media screen and (max-width: 640px) {
+          .email-wrapper { margin: 20px; }
+          .container { padding: 25px; }
+          .info-row { flex-direction: column; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-wrapper">
+        <div class="container">
+          <div class="header">
+            <img src="https://i.ibb.co/5xj5Pvc8/final-files-mhh-copy-3.png" alt="MHH" class="logo">
+            <div class="alert-badge">🎫 New Support Ticket</div>
+          </div>
+          
+          <div class="content">
+            <p>A new support ticket has been created.</p>
+            
+            <div class="section-title">🎫 Ticket Details</div>
+            <div class="info-box">
+              <div class="info-row">
+                <span class="info-label">Ticket</span>
+                <span class="info-value">${ticketNumber}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Order</span>
+                <span class="info-value">${orderId}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Title</span>
+                <span class="info-value">${orderTitle}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Issue Type</span>
+                <span class="info-value">${issueType}</span>
+              </div>
+            </div>
+            
+            <div class="section-title">👤 Submitted By</div>
+            <div class="info-box">
+              <div class="info-row">
+                <span class="info-label">Name</span>
+                <span class="info-value">${userName}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">${userEmail}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Type</span>
+                <span class="info-value">${userType === 'customer' ? 'Customer' : 'Expert'}</span>
+              </div>
+            </div>
+            
+            <div class="section-title">💬 Message</div>
+            <div class="message-box">${message}</div>
+            
+            <center>
+              <a href="${ticketUrl}" class="view-btn">View Ticket in Admin Panel</a>
+            </center>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}
