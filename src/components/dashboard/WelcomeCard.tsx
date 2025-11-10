@@ -48,7 +48,7 @@ export function WelcomeCard({ displayName, userType, activeOrders }: WelcomeCard
       className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-xl p-6 md:p-8 text-white shadow-lg"
     >
       <h1 className="text-2xl md:text-3xl font-bold mb-2">
-        �� Welcome back, {displayName}!
+        <span className="inline-block">👋</span> Welcome back, {displayName}!
       </h1>
       <p className="text-slate-300 text-sm md:text-base">
         {summary}
