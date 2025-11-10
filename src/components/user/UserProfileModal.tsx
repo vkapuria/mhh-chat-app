@@ -10,6 +10,7 @@ import {
   UserCircleIcon,
   CheckIcon,
   XMarkIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -55,9 +56,14 @@ interface UserProfileModalProps {
 export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: UserProfileModalProps) {
   const AVAILABLE_AVATARS = userType === 'expert' ? EXPERT_AVATARS : CUSTOMER_AVATARS;
 
+  const [fullName, setFullName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string>(AVAILABLE_AVATARS[0]);
   const [saving, setSaving] = useState(false);
+  const [lastDisplayNameChange, setLastDisplayNameChange] = useState<string | null>(null);
+  const [lastAvatarChange, setLastAvatarChange] = useState<string | null>(null);
+  const [initialDisplayName, setInitialDisplayName] = useState('');
+  const [initialAvatarUrl, setInitialAvatarUrl] = useState<string>(AVAILABLE_AVATARS[0]);
 
   useEffect(() => {
     if (isOpen) {
@@ -67,15 +73,43 @@ export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: Use
 
   const fetchUserProfile = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setDisplayName(user.user_metadata?.display_name || user.email?.split('@')[0] || '');
-        setAvatarUrl(user.user_metadata?.avatar_url || AVAILABLE_AVATARS[0]);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const response = await fetch('/api/profile', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        const profile = result.profile;
+        setFullName(profile.name || '');
+        setDisplayName(profile.display_name || profile.email?.split('@')[0] || '');
+        setAvatarUrl(profile.avatar_url || AVAILABLE_AVATARS[0]);
+        setLastDisplayNameChange(profile.last_display_name_change);
+        setLastAvatarChange(profile.last_avatar_change);
+        setInitialDisplayName(profile.display_name || profile.email?.split('@')[0] || '');
+        setInitialAvatarUrl(profile.avatar_url || AVAILABLE_AVATARS[0]);
       }
     } catch (error) {
       console.error('Error fetching user profile:', error);
     }
   };
+
+  const calculateDaysRemaining = (lastChangeDate: string | null): number | null => {
+    if (!lastChangeDate) return null;
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const timeSinceChange = Date.now() - new Date(lastChangeDate).getTime();
+    if (timeSinceChange >= THIRTY_DAYS_MS) return null;
+    return Math.ceil((THIRTY_DAYS_MS - timeSinceChange) / (24 * 60 * 60 * 1000));
+  };
+
+  const canChangeDisplayName = displayName === initialDisplayName || calculateDaysRemaining(lastDisplayNameChange) === null;
+  const canChangeAvatar = avatarUrl === initialAvatarUrl || calculateDaysRemaining(lastAvatarChange) === null;
+  const displayNameDaysRemaining = calculateDaysRemaining(lastDisplayNameChange);
+  const avatarDaysRemaining = calculateDaysRemaining(lastAvatarChange);
 
   const handleSaveProfile = async () => {
     if (!displayName.trim()) {
@@ -93,21 +127,51 @@ export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: Use
       return;
     }
 
+    // Check if display name or avatar is being changed and restrictions apply
+    const isDisplayNameChanged = displayName !== initialDisplayName;
+    const isAvatarChanged = avatarUrl !== initialAvatarUrl;
+
+    if (isDisplayNameChanged && !canChangeDisplayName) {
+      toast.error(`You can change your display name again in ${displayNameDaysRemaining} day${displayNameDaysRemaining === 1 ? '' : 's'}`);
+      return;
+    }
+
+    if (isAvatarChanged && !canChangeAvatar) {
+      toast.error(`You can change your profile picture again in ${avatarDaysRemaining} day${avatarDaysRemaining === 1 ? '' : 's'}`);
+      return;
+    }
+
     setSaving(true);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expired. Please log in again.');
+        return;
+      }
+
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          name: fullName.trim(),
           display_name: displayName.trim(),
           avatar_url: avatarUrl,
-        },
+        }),
       });
 
-      if (error) throw error;
+      const result = await response.json();
 
-      toast.success('Profile updated successfully!');
-      onClose();
-      window.location.reload();
+      if (result.success) {
+        toast.success('Profile updated successfully!');
+        onClose();
+        window.location.reload();
+      } else {
+        toast.error(result.error || 'Failed to update profile');
+      }
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast.error(error.message || 'Failed to update profile');
@@ -156,9 +220,31 @@ export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: Use
 
               {/* Content */}
               <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                {/* 30-day Restriction Notice */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2">
+                  <ExclamationTriangleIcon className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="text-sm text-amber-800">
+                    <p className="font-semibold mb-1">Important: Change Restrictions</p>
+                    <p>Your display name and profile picture can only be changed once every 30 days to prevent frequent changes.</p>
+                  </div>
+                </div>
+
+                {/* Full Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name (Private - Admin Only)</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your real name"
+                  />
+                  <p className="text-xs text-slate-500">Your real name is only visible to administrators</p>
+                </div>
+
                 {/* Display Name */}
                 <div className="space-y-2">
-                  <Label htmlFor="displayName">Display Name</Label>
+                  <Label htmlFor="displayName">Display Name (Public)</Label>
                   <Input
                     id="displayName"
                     type="text"
@@ -166,14 +252,23 @@ export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: Use
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="How others see you"
                     maxLength={30}
+                    className={displayName !== initialDisplayName && !canChangeDisplayName ? 'border-red-300' : ''}
                   />
-                  <p className="text-xs text-slate-500">2-30 characters, letters only</p>
+                  <p className="text-xs text-slate-500">
+                    This is how customers and experts will see you in chats (2-30 characters, letters only)
+                  </p>
+                  {displayName !== initialDisplayName && displayNameDaysRemaining !== null && (
+                    <p className="text-xs text-red-600 flex items-center gap-1">
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      You can change your display name again in {displayNameDaysRemaining} day{displayNameDaysRemaining === 1 ? '' : 's'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Avatar Selection */}
                 <div className="space-y-2">
                   <Label>Profile Picture</Label>
-                  <div className="border border-slate-200 rounded-lg p-3 bg-slate-50">
+                  <div className={`border rounded-lg p-3 bg-slate-50 ${avatarUrl !== initialAvatarUrl && !canChangeAvatar ? 'border-red-300' : 'border-slate-200'}`}>
                     <div className="grid grid-cols-4 gap-3 max-h-64 overflow-y-auto">
                       {AVAILABLE_AVATARS.map((avatar) => (
                         <button
@@ -195,6 +290,12 @@ export function UserProfileModal({ isOpen, onClose, userType = 'customer' }: Use
                       ))}
                     </div>
                   </div>
+                  {avatarUrl !== initialAvatarUrl && avatarDaysRemaining !== null && (
+                    <p className="text-xs text-red-600 flex items-center gap-1">
+                      <ExclamationTriangleIcon className="w-4 h-4" />
+                      You can change your profile picture again in {avatarDaysRemaining} day{avatarDaysRemaining === 1 ? '' : 's'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Preview */}
