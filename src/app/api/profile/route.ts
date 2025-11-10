@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
         display_name: user.user_metadata?.display_name || '',
         user_type: user.user_metadata?.user_type || 'customer',
         avatar_url: user.user_metadata?.avatar_url || null,
+        last_display_name_change: user.user_metadata?.last_display_name_change || null,
+        last_avatar_change: user.user_metadata?.last_avatar_change || null,
       },
     });
   } catch (error) {
@@ -48,35 +50,72 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, email, display_name } = body;
+    const { name, email, display_name, avatar_url } = body;
+
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const updatedMetadata: any = { ...user.user_metadata };
 
     // If display_name is being updated, validate it
     if (display_name !== undefined && display_name !== user.user_metadata?.display_name) {
+      // Check 30-day restriction
+      const lastChange = user.user_metadata?.last_display_name_change;
+      if (lastChange) {
+        const timeSinceChange = now - new Date(lastChange).getTime();
+        if (timeSinceChange < THIRTY_DAYS_MS) {
+          const daysRemaining = Math.ceil((THIRTY_DAYS_MS - timeSinceChange) / (24 * 60 * 60 * 1000));
+          return NextResponse.json({
+            error: `You can change your display name again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`
+          }, { status: 400 });
+        }
+      }
+
       // Validate format
       const validation = validateDisplayName(display_name);
       if (!validation.valid) {
-        return NextResponse.json({ 
-          error: validation.errors[0] 
+        return NextResponse.json({
+          error: validation.errors[0]
         }, { status: 400 });
       }
 
       // Check uniqueness
       const isUnique = await isDisplayNameUnique(display_name, user.id);
       if (!isUnique) {
-        return NextResponse.json({ 
-          error: 'This display name is already taken. Please choose another.' 
+        return NextResponse.json({
+          error: 'This display name is already taken. Please choose another.'
         }, { status: 400 });
       }
+
+      updatedMetadata.display_name = display_name;
+      updatedMetadata.last_display_name_change = new Date().toISOString();
+    }
+
+    // If avatar_url is being updated, check 30-day restriction
+    if (avatar_url !== undefined && avatar_url !== user.user_metadata?.avatar_url) {
+      const lastChange = user.user_metadata?.last_avatar_change;
+      if (lastChange) {
+        const timeSinceChange = now - new Date(lastChange).getTime();
+        if (timeSinceChange < THIRTY_DAYS_MS) {
+          const daysRemaining = Math.ceil((THIRTY_DAYS_MS - timeSinceChange) / (24 * 60 * 60 * 1000));
+          return NextResponse.json({
+            error: `You can change your profile picture again in ${daysRemaining} day${daysRemaining === 1 ? '' : 's'}.`
+          }, { status: 400 });
+        }
+      }
+
+      updatedMetadata.avatar_url = avatar_url;
+      updatedMetadata.last_avatar_change = new Date().toISOString();
+    }
+
+    // Update name if provided
+    if (name !== undefined) {
+      updatedMetadata.name = name;
     }
 
     // Update user metadata
     const { error: updateError } = await supabase.auth.updateUser({
       email: email || user.email,
-      data: {
-        ...user.user_metadata,
-        name: name || user.user_metadata?.name,
-        display_name: display_name !== undefined ? display_name : user.user_metadata?.display_name,
-      },
+      data: updatedMetadata,
     });
 
     if (updateError) {
