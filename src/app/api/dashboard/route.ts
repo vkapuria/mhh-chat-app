@@ -83,8 +83,8 @@ async function dashboardHandler(request: NextRequest) {
         // Fallback computation (less efficient but works)
         const allOrders = orders || [];
         
-        const activeCount = allOrders.filter((o: any) => 
-          ['Assigned', 'In Progress', 'Revision', 'Pending'].includes(o.status)
+        const activeCount = allOrders.filter((o: any) =>
+          ['Assigned', 'Revision', 'Pending'].includes(o.status)
         ).length;
 
         const pendingPaymentCount = allOrders.filter((o: any) =>

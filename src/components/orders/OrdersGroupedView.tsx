@@ -51,7 +51,7 @@ export function OrdersGroupedView({
 
     // Expand if it has active orders
     const hasActive = orders.some(o =>
-      ['Assigned', 'In Progress', 'Pending', 'Revision'].includes(o.status)
+      ['Assigned', 'Pending', 'Revision'].includes(o.status)
     );
     return hasActive;
   };

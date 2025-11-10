@@ -18,8 +18,8 @@ interface OrderCardProps {
 
 export function OrderCard({ order, userType }: OrderCardProps) {
   const router = useRouter();
-  // Chat is enabled for all statuses except 'Pending'
-  const isChatEnabled = order.status !== 'Pending';
+  // Chat is allowed for Pending, Assigned, and Revision statuses
+  const isChatEnabled = ['Pending', 'Assigned', 'Revision'].includes(order.status);
 
   const handleChatClick = () => {
     if (isChatEnabled) {
@@ -31,9 +31,8 @@ export function OrderCard({ order, userType }: OrderCardProps) {
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
       Pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-      Assigned: 'bg-blue-100 text-blue-700 border-blue-200', // Blue for In Progress
-      'In Progress': 'bg-blue-100 text-blue-700 border-blue-200', // Explicitly add In Progress
-      Revision: 'bg-red-100 text-red-700 border-red-200', // Red for Under Revision
+      Assigned: 'bg-blue-100 text-blue-700 border-blue-200',
+      Revision: 'bg-red-100 text-red-700 border-red-200',
       Completed: 'bg-green-100 text-green-700 border-green-200',
       Refunded: 'bg-red-100 text-red-700 border-red-200',
     };
@@ -48,8 +47,6 @@ export function OrderCard({ order, userType }: OrderCardProps) {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'Assigned':
-        return 'In Progress';
       case 'Revision':
         return 'Under Revision';
       default:

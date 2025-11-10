@@ -106,7 +106,7 @@ export default function OrdersPage() {
     if (activeFilter === 'pending') {
       filtered = filtered.filter(o => o.status === 'Pending');
     } else if (activeFilter === 'active') {
-      filtered = filtered.filter(o => o.status === 'Assigned' || o.status === 'In Progress');
+      filtered = filtered.filter(o => o.status === 'Assigned' || o.status === 'Revision');
     } else if (activeFilter === 'completed') {
       filtered = filtered.filter(o => o.status === 'Completed');
     }
@@ -126,7 +126,7 @@ export default function OrdersPage() {
   const counts = useMemo(() => ({
     all: orders.length,
     pending: orders.filter(o => o.status === 'Pending').length,
-    active: orders.filter(o => o.status === 'Assigned' || o.status === 'In Progress').length,
+    active: orders.filter(o => o.status === 'Assigned' || o.status === 'Revision').length,
     completed: orders.filter(o => o.status === 'Completed').length,
   }), [orders]);
 

@@ -56,8 +56,6 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
     switch (status) {
       case 'Completed':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'In Progress':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Assigned':
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'Revision':
@@ -74,8 +72,6 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'Assigned':
-        return 'In Progress';
       case 'Revision':
         return 'Under Revision';
       default:
@@ -83,7 +79,8 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
     }
   };
 
-  const canChat = order.expert_id && order.status !== 'Completed' && order.status !== 'Cancelled' && order.status !== 'Refunded';
+  // Chat is allowed for Pending, Assigned, and Revision statuses
+  const canChat = ['Pending', 'Assigned', 'Revision'].includes(order.status);
 
   return (
     <div className="relative bg-white rounded-lg shadow-sm border border-slate-200 p-6 pt-7 mt-6 flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -93,7 +90,7 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
         {order.status === 'Completed' && (
           <CheckCircleIcon className="w-5 h-5" />
         )}
-        {(order.status === 'In Progress' || order.status === 'Assigned') && (
+        {order.status === 'Assigned' && (
           <ClockIcon className="w-5 h-5" />
         )}
         {order.status === 'Revision' && (

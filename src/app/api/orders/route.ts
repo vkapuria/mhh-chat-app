@@ -59,7 +59,7 @@ async function ordersHandler(request: NextRequest) {
     // Apply status filter
     if (status && status !== 'all') {
       if (status === 'active') {
-        query = query.in('status', ['Assigned', 'In Progress']);
+        query = query.in('status', ['Assigned', 'Revision']);
       } else if (status === 'pending') {
         query = query.eq('status', 'Pending');
       } else if (status === 'completed') {
