@@ -248,6 +248,26 @@ console.log('Order fetched:', order);
         ])
       );
 
+      // 🎯 Build admin avatar map
+      const adminMap = new Map(
+        users?.users
+          .filter(u => u.user_metadata?.user_type === 'admin')
+          .map(u => [
+            u.id,
+            {
+              name: u.user_metadata?.display_name || u.user_metadata?.name || 'Support Team',
+              avatar: u.user_metadata?.avatar_url || null,
+            }
+          ])
+      );
+
+      // Get default admin (Nick or first available)
+      const defaultAdmin = Array.from(adminMap.values()).find(a => a.name.includes('Nick')) 
+        || Array.from(adminMap.values())[0] 
+        || { name: 'Support Team', avatar: '/avatars/admin/nick-kessler.png' };
+
+      console.log('👨‍💼 Admin avatars loaded:', adminMap.size, 'Default:', defaultAdmin.name);
+
       // Add reply_count and update with current user info
       const ticketsWithCount = tickets?.map(ticket => {
         const currentUser = userMap.get(ticket.user_id);
@@ -261,13 +281,22 @@ console.log('Order fetched:', order);
           lastReplyBy = sortedReplies[0].reply_type === 'admin' ? 'admin' : 'user';
         }
         
+        // 🎯 Get admin info (use assigned admin or default)
+        const assignedAdmin = ticket.assigned_admin_id 
+          ? adminMap.get(ticket.assigned_admin_id) 
+          : null;
+        const adminInfo = assignedAdmin || defaultAdmin;
+        
         return {
           ...ticket,
           reply_count: ticket.replies?.length || 0,
-          last_reply_by: lastReplyBy, // Use calculated value instead of stored field
+          last_reply_by: lastReplyBy,
           // Override with current user data if available
           user_display_name: currentUser?.display_name || ticket.user_display_name,
           user_avatar_url: currentUser?.avatar_url || ticket.user_avatar_url,
+          // Add admin info
+          admin_avatar: adminInfo.avatar,
+          admin_name: adminInfo.name,
         };
       }) || [];
 

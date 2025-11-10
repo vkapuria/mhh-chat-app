@@ -45,8 +45,7 @@ async function conversationsHandler(request: NextRequest) {
       status,
       updated_at,
       chat_status,
-      chat_closed_at,
-      experts:expert_id(email)
+      chat_closed_at
     `);
 
 if (userType === 'customer') {
@@ -82,6 +81,58 @@ ordersQuery = ordersQuery
 
     const orderIds = orders.map((o: any) => o.id);
 
+    // 🎯 NEW: Fetch avatars from auth.users
+    // Get unique customer emails and expert user IDs from orders
+    const customerEmails = [...new Set(orders.map((o: any) => o.customer_email).filter(Boolean))];
+    const expertIds = [...new Set(orders.map((o: any) => o.expert_id).filter(Boolean))];
+
+    // Create service role client for admin access
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!, // ← Service role key!
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
+
+    // Fetch ALL auth users (with admin access)
+    const { data: allAuthUsers, error: authUsersError } = await supabaseAdmin.auth.admin.listUsers();
+
+    if (authUsersError) {
+      console.error('❌ Failed to fetch auth users:', authUsersError);
+    }
+
+    console.log('📊 Fetched auth users:', allAuthUsers?.users?.length || 0);
+
+    // Build customer avatar map (by email)
+    const customerAvatarMap = new Map<string, string>();
+    allAuthUsers?.users.forEach((authUser: any) => {
+      if (customerEmails.includes(authUser.email) && authUser.user_metadata?.avatar_url) {
+        customerAvatarMap.set(authUser.email, authUser.user_metadata.avatar_url);
+      }
+    });
+
+    // Build expert avatar map (by expert_id in metadata)
+    const expertAvatarMap = new Map<string, string>();
+    allAuthUsers?.users.forEach((authUser: any) => {
+      const expertId = authUser.user_metadata?.expert_id;
+      if (expertId && expertIds.includes(expertId) && authUser.user_metadata?.avatar_url) {
+        expertAvatarMap.set(expertId, authUser.user_metadata.avatar_url);
+      }
+    });
+
+    console.log('🎨 Avatar maps:', {
+      totalAuthUsers: allAuthUsers?.users?.length || 0,
+      customers: customerAvatarMap.size,
+      experts: expertAvatarMap.size,
+      customerEmails: customerEmails.length,
+      expertIds: expertIds.length,
+      sampleCustomerEmails: customerEmails.slice(0, 3),
+      sampleExpertIds: expertIds.slice(0, 3),
+    });
     // Create authenticated client for RLS
     const supabaseAuth = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -192,12 +243,15 @@ ordersQuery = ordersQuery
     perfLogger.start('conversations.enrichment');
 
     // ✅ OPTIMIZATION 5+6: Minimal response for list view
-const conversationsWithData = orders.map((order: any) => {
-  const lastMessage = lastMessageMap.get(order.id);
-  const unreadCount = unreadCountMap.get(order.id) || 0;
-  
-  // Extract expert email from embedded relation
-  const expertEmail = order.experts?.email || null;
+    const conversationsWithData = orders.map((order: any) => {
+      const lastMessage = lastMessageMap.get(order.id);
+      const unreadCount = unreadCountMap.get(order.id) || 0;
+      
+      // 🎯 Get avatars from auth users
+      const expertAvatar = expertAvatarMap.get(order.expert_id) || null;
+      const customerAvatar = customerAvatarMap.get(order.customer_email) || null;
+      
+      const expertEmail = order.experts?.email || null;
 
   // Classify conversation status
 const hasMessages = !!lastMessage;
@@ -225,9 +279,11 @@ if (isChatClosed || !isOrderActive) {
     customer_email: order.customer_email,
     expert_name: order.expert_name,
     expert_display_name: order.expert_display_name,
-    expert_email: expertEmail,
+    expert_email: null,
     expert_user_id: expertUserIdMap.get(order.id) || null,
     customer_user_id: customerUserIdMap.get(order.id) || null,
+    customer_avatar: customerAvatar,  // ← ADD THIS
+    expert_avatar: expertAvatar,  // ← ADD THIS
     status: order.status,
     updated_at: order.updated_at,
     chat_status: order.chat_status,
