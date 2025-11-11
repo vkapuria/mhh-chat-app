@@ -60,10 +60,12 @@ export function ChatWindow({ orderId, user }: ChatWindowProps) {
 
       {/* Input */}
       <div className="bg-white border-t border-slate-200 p-4">
-        <MessageInput 
-          onSend={handleSendMessage} 
-          otherUserOnline={presence.otherUserOnline}
-        />
+      <MessageInput 
+        orderId={orderId}
+        currentUserId={user.id}
+        onSend={handleSendMessage} 
+        otherUserOnline={presence.otherUserOnline}
+      />
       </div>
     </div>
   );
