@@ -1823,3 +1823,430 @@ export function generateAdminTicketCreatedEmail(params: {
     </html>
   `;
 }
+
+export function generateBatchMessageEmail(params: {
+  recipientName: string;
+  senderDisplayName: string;
+  senderType: 'customer' | 'expert';
+  orderId: string;
+  orderTitle: string;
+  messages: Array<{
+    senderName: string;
+    content: string;
+    sentAt: string;
+  }>;
+  totalMessageCount: number;
+  hasMoreMessages: boolean;
+  remainingCount: number;
+  messageUrl: string;
+}) {
+  const { 
+    recipientName, 
+    senderDisplayName,
+    senderType,
+    orderId, 
+    orderTitle, 
+    messages,
+    totalMessageCount,
+    hasMoreMessages,
+    remainingCount,
+    messageUrl
+  } = params;
+
+  // Get sender avatar initials
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const senderLabel = senderType === 'expert' ? 'Expert' : 'Customer';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+      <style>
+        body { 
+          font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+          line-height: 1.7;
+          color: #2d3748;
+          margin: 0;
+          padding: 0;
+          background: #f7fafc;
+          -webkit-font-smoothing: antialiased;
+        }
+        .email-wrapper {
+          max-width: 600px;
+          margin: 40px auto;
+          background: #ffffff;
+          border-radius: 12px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 20px rgba(0, 0, 0, 0.05);
+          overflow: hidden;
+        }
+        .container { 
+          padding: 50px 40px;
+        }
+        .header { 
+          margin-bottom: 40px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding-bottom: 30px;
+          border-bottom: 1px solid #e2e8f0;
+        }
+        .logo-section {
+          flex: 1;
+        }
+        .date-section {
+          text-align: right;
+          font-size: 14px;
+          color: #718096;
+        }
+        .content { 
+          font-size: 16px; 
+          line-height: 1.7; 
+          color: #2d3748;
+        }
+        .content p { 
+          margin: 0 0 20px 0; 
+        }
+        .greeting {
+          font-size: 18px;
+          font-weight: 600;
+          color: #1a202c;
+          margin-bottom: 25px;
+        }
+        
+        .order-box {
+          background: #f7fafc;
+          border: 2px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 20px;
+          margin: 25px 0;
+        }
+        .order-row {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 10px;
+          font-size: 14px;
+        }
+        .order-row:last-child {
+          margin-bottom: 0;
+        }
+        .order-label {
+          color: #718096;
+          font-weight: 500;
+        }
+        .order-value {
+          color: #2d3748;
+          font-weight: 600;
+        }
+        
+        .message-count-badge {
+          display: inline-block;
+          background: #4f46e5;
+          color: white;
+          padding: 6px 16px;
+          border-radius: 20px;
+          font-weight: 600;
+          font-size: 14px;
+          margin-bottom: 20px;
+        }
+        
+        .chat-window {
+          background: #f8fafc;
+          border-radius: 12px;
+          padding: 20px;
+          margin: 25px 0;
+          max-height: 500px;
+          overflow-y: auto;
+        }
+        
+        .chat-message {
+          display: flex;
+          align-items: flex-start;
+          margin-bottom: 16px;
+        }
+        
+        .chat-message:last-child {
+          margin-bottom: 0;
+        }
+        
+        .message-avatar {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 600;
+          color: #ffffff;
+          font-size: 14px;
+          flex-shrink: 0;
+          margin-right: 12px;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .message-content {
+          flex: 1;
+          max-width: 85%;
+        }
+        
+        .message-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 6px;
+        }
+        
+        .message-sender {
+          font-weight: 600;
+          color: #1e293b;
+          font-size: 14px;
+        }
+        
+        .message-time {
+          font-size: 12px;
+          color: #64748b;
+        }
+        
+        .message-bubble {
+          background: #ffffff;
+          border: 1px solid #e2e8f0;
+          border-radius: 16px;
+          border-top-left-radius: 4px;
+          padding: 12px 16px;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+          position: relative;
+        }
+        
+        .message-bubble::before {
+          content: '';
+          position: absolute;
+          left: -8px;
+          top: 0;
+          width: 0;
+          height: 0;
+          border-style: solid;
+          border-width: 0 8px 8px 0;
+          border-color: transparent #e2e8f0 transparent transparent;
+        }
+        
+        .message-bubble::after {
+          content: '';
+          position: absolute;
+          left: -7px;
+          top: 0;
+          width: 0;
+          height: 0;
+          border-style: solid;
+          border-width: 0 7px 7px 0;
+          border-color: transparent #ffffff transparent transparent;
+        }
+        
+        .message-text {
+          color: #334155;
+          line-height: 1.5;
+          margin: 0;
+          font-size: 14px;
+          word-wrap: break-word;
+          white-space: pre-wrap;
+        }
+        
+        .more-messages {
+          background: #e0e7ff;
+          border: 2px dashed #818cf8;
+          border-radius: 8px;
+          padding: 12px;
+          text-align: center;
+          color: #4338ca;
+          font-weight: 500;
+          font-size: 13px;
+          margin-top: 12px;
+        }
+        
+        .cta-section {
+          text-align: center;
+          margin: 35px 0;
+        }
+        .view-btn {
+          display: inline-block;
+          background: #4f46e5;
+          color: #ffffff !important;
+          padding: 14px 32px;
+          text-decoration: none;
+          border-radius: 8px;
+          font-weight: 600;
+          font-size: 16px;
+          box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+          transition: all 0.2s;
+        }
+        .view-btn:hover {
+          background: #4338ca;
+          box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3);
+          transform: translateY(-1px);
+        }
+        
+        .signature-section { 
+          margin-top: 40px;
+          padding-top: 30px;
+          border-top: 1px solid #e2e8f0;
+        }
+        .signature { 
+          font-size: 16px; 
+          font-weight: 500;
+          margin-bottom: 25px;
+          line-height: 1.6;
+          color: #2d3748;
+        }
+        
+        .help-section { 
+          font-size: 14px; 
+          color: #718096;
+          margin-top: 25px;
+        }
+        .help-section p {
+          margin: 0 0 8px 0;
+        }
+        a { 
+          color: #4f46e5; 
+          text-decoration: none; 
+        }
+        a:hover { 
+          text-decoration: underline; 
+        }
+        
+        @media screen and (max-width: 640px) {
+          body {
+            padding: 10px;
+          }
+          .email-wrapper {
+            margin: 20px auto;
+            border-radius: 8px;
+          }
+          .container { 
+            padding: 30px 25px; 
+          }
+          .header {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .date-section {
+            text-align: left;
+            margin-top: 10px;
+          }
+          .order-row {
+            flex-direction: column;
+            gap: 5px;
+          }
+          .content { 
+            font-size: 15px; 
+          }
+          .chat-window {
+            padding: 15px;
+          }
+          .message-content {
+            max-width: 80%;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="email-wrapper">
+        <div class="container">
+          <div class="header">
+            <div class="logo-section">
+              <img src="https://i.ibb.co/5xj5Pvc8/final-files-mhh-copy-3.png" alt="MyHomeworkHelp" width="140" style="height: auto;">
+            </div>
+            <div class="date-section">
+              ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+            </div>
+          </div>
+          
+          <div class="content">
+            <div class="greeting">
+              You Have New Messages 💬
+            </div>
+            
+            <p>Hi <strong>${recipientName}</strong>,</p>
+            
+            <span class="message-count-badge">${totalMessageCount} New ${totalMessageCount === 1 ? 'Message' : 'Messages'}</span>
+            
+            <p>Your ${senderLabel.toLowerCase()} has sent you ${totalMessageCount === 1 ? 'a message' : 'multiple messages'} about your order:</p>
+            
+            <div class="order-box">
+              <div class="order-row">
+                <span class="order-label">📦 Order:</span>
+                <span class="order-value">${orderTitle}</span>
+              </div>
+              <div class="order-row">
+                <span class="order-label">🆔 Order ID:</span>
+                <span class="order-value">${orderId}</span>
+              </div>
+              <div class="order-row">
+                <span class="order-label">👤 From:</span>
+                <span class="order-value">${senderDisplayName} (${senderLabel})</span>
+              </div>
+            </div>
+            
+            <div class="chat-window">
+              ${messages.map((msg) => `
+                <div class="chat-message">
+                  <div class="message-avatar">${getInitials(msg.senderName)}</div>
+                  <div class="message-content">
+                    <div class="message-header">
+                      <span class="message-sender">${msg.senderName}</span>
+                      <span class="message-time">${msg.sentAt}</span>
+                    </div>
+                    <div class="message-bubble">
+                      <p class="message-text">${msg.content}</p>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+              
+              ${hasMoreMessages ? `
+                <div class="more-messages">
+                  📬 ...and ${remainingCount} more ${remainingCount === 1 ? 'message' : 'messages'}
+                </div>
+              ` : ''}
+            </div>
+            
+            <p>Click below to view the full conversation and respond:</p>
+            
+            <div class="cta-section">
+              <a href="${messageUrl}" class="view-btn">
+                View Full Conversation
+              </a>
+            </div>
+            
+            <p style="font-size: 14px; color: #718096;">
+              💡 <strong>Tip:</strong> Reply directly in the app to keep all conversations organized in one place.
+            </p>
+          </div>
+          
+          <div class="signature-section">
+            <div class="signature">
+              Best regards,<br>
+              <strong>MyHomeworkHelp Team</strong>
+            </div>
+            
+            <div class="help-section">
+              <p><strong>Need help?</strong> Contact us at <a href="mailto:orders@myhomeworkhelp.com">orders@myhomeworkhelp.com</a></p>
+              <p style="font-size: 13px; color: #a0aec0;">Support Hours: 8am - 8pm ET, Mon-Fri</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+}

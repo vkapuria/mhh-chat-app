@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { PaperAirplaneIcon, BellIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
+import { useNotificationCooldownStore } from '@/store/notification-cooldown-store';
 
 interface MessageInputProps {
-  onSend: (content: string, sendNotification: boolean) => Promise<any>;
+  onSend: (content: string, shouldNotify: boolean) => Promise<any>;
   otherUserOnline: boolean;
+  orderId: string;
+  currentUserId: string;
 }
 
-export function MessageInput({ onSend, otherUserOnline }: MessageInputProps) {
+export function MessageInput({ onSend, otherUserOnline, orderId, currentUserId }: MessageInputProps) {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [feedback, setFeedback] = useState<{
@@ -18,34 +21,48 @@ export function MessageInput({ onSend, otherUserOnline }: MessageInputProps) {
     message: string;
   }>({ type: null, message: '' });
 
-  const handleSubmit = async (sendNotification: boolean) => {
+  const recordNotification = useNotificationCooldownStore((state) => state.recordNotification);
+  const incrementMessageCount = useNotificationCooldownStore((state) => state.incrementMessageCount);
+  const getCooldown = useNotificationCooldownStore((state) => state.getCooldown);
+
+  const handleSubmit = async () => {
     if (!message.trim() || sending) return;
 
     setSending(true);
     setFeedback({ type: null, message: '' });
 
-    const result = await onSend(message, sendNotification);
+    const cooldown = getCooldown(orderId);
+    const isFirstMessage = !cooldown;
+    
+    // Auto-notify logic:
+    // - If recipient offline AND first message → notify
+    // - Otherwise → just send to chat
+    const shouldNotify = !otherUserOnline && isFirstMessage;
+
+    const result = await onSend(message, shouldNotify);
 
     if (result.success) {
       setMessage('');
       
-      // Show feedback based on notification status
-      if (sendNotification) {
+      if (shouldNotify) {
+        // Record this notification in cooldown store
+        recordNotification(orderId, currentUserId);
+        
         if (result.emailSent) {
           setFeedback({
             type: 'success',
-            message: '✅ Message sent & email notification delivered!'
+            message: '✅ Message sent & recipient notified via email'
           });
-        } else if (result.emailError) {
+        } else {
           setFeedback({
             type: 'warning',
             message: '⚠️ Message sent but email notification failed'
           });
-        } else {
-          setFeedback({
-            type: 'success',
-            message: '✅ Message sent successfully'
-          });
+        }
+      } else {
+        // Just increment message count (for batch notification later)
+        if (!otherUserOnline && cooldown) {
+          incrementMessageCount(orderId);
         }
       }
       
@@ -66,7 +83,7 @@ export function MessageInput({ onSend, otherUserOnline }: MessageInputProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(!otherUserOnline); // Auto-notify if other user is offline
+      handleSubmit();
     }
   };
 
@@ -98,62 +115,25 @@ export function MessageInput({ onSend, otherUserOnline }: MessageInputProps) {
           {sending ? 'Sending...' : 'Press Enter to send, Shift+Enter for new line'}
         </p>
         
-        <div className="flex gap-2">
-          {/* When both online, just show one Send button */}
-          {otherUserOnline ? (
-            <Button
-              onClick={() => handleSubmit(false)}
-              disabled={!message.trim() || sending}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {sending ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <PaperAirplaneIcon className="w-4 h-4 mr-2" />
-                  Send
-                </>
-              )}
-            </Button>
+        {/* Single Send Button */}
+        <Button
+          onClick={handleSubmit}
+          disabled={!message.trim() || sending}
+          size="sm"
+          className="bg-blue-600 hover:bg-blue-700"
+        >
+          {sending ? (
+            <>
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              Sending...
+            </>
           ) : (
             <>
-              {/* Send without notification */}
-              <Button
-                onClick={() => handleSubmit(false)}
-                disabled={!message.trim() || sending}
-                variant="outline"
-                size="sm"
-              >
-                <PaperAirplaneIcon className="w-4 h-4 mr-2" />
-                Send Only
-              </Button>
-
-              {/* Send with email notification */}
-              <Button
-                onClick={() => handleSubmit(true)}
-                disabled={!message.trim() || sending}
-                size="sm"
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                {sending ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <BellIcon className="w-4 h-4 mr-2" />
-                    Send & Notify
-                  </>
-                )}
-              </Button>
+              <PaperAirplaneIcon className="w-4 h-4 mr-2" />
+              Send
             </>
           )}
-        </div>
+        </Button>
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import {
   LifebuoyIcon,
   LightBulbIcon,
   MagnifyingGlassIcon,
+  ShieldCheckIcon
 } from '@heroicons/react/24/outline';
 
 export default function FAQPage() {
@@ -48,23 +49,25 @@ export default function FAQPage() {
   const categoryIcons: Record<string, any> = {
     'Getting Started': ShoppingCartIcon,
     'Chat & Communication': ChatBubbleLeftRightIcon,
+    'Privacy & Safety': ShieldCheckIcon, // ✅ Add this
     'Support & Help': LifebuoyIcon,
     'Payments & Feedback': CurrencyDollarIcon,
     'Earnings & Payments': CurrencyDollarIcon,
     'Support & Issues': LifebuoyIcon,
     'Best Practices': LightBulbIcon,
   };
-
-  // Short labels for tabs
+  
   const categoryLabels: Record<string, string> = {
     'Getting Started': 'Basics',
     'Chat & Communication': 'Chat',
+    'Privacy & Safety': 'Privacy', // ✅ Add this
     'Support & Help': 'Support',
     'Payments & Feedback': 'Payments',
     'Earnings & Payments': 'Earnings',
     'Support & Issues': 'Support',
     'Best Practices': 'Tips',
   };
+  
 
   // Filter current tab FAQs
   const currentCategory = groupedFAQs[activeTab];

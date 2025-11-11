@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { getCachedUser } from '@/lib/cached-auth';
 import { createClient } from '@supabase/supabase-js';
+import { Resend } from 'resend';
+import { generateNewMessageEmail } from '@/lib/email';
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // GET: Fetch messages for an order
 export async function GET(request: NextRequest) {
@@ -130,11 +134,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if order exists
+    // Check if order exists and get details
     console.log('🔍 Checking order:', order_id);
     const { data: orderData, error: orderError } = await supabaseAuth
       .from('orders')
-      .select('id, customer_email, expert_id, expert_name, customer_name')
+      .select('id, title, task_code, customer_email, customer_name, customer_display_name, expert_id, expert_name, expert_display_name')
       .eq('id', order_id)
       .single();
 
@@ -188,7 +192,81 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Message inserted successfully:', data?.id);
 
-    return NextResponse.json({ success: true, message: data });
+    // Send email notification if requested
+    let emailSent = false;
+    let emailError = null;
+
+    if (send_notification) {
+      try {
+        console.log('📧 Sending email notification...');
+        
+        // Determine recipient based on sender type
+        const isCustomer = sender_type === 'customer';
+        
+        // Get recipient details from order
+        let recipientEmail: string | null = null;
+        let recipientName: string;
+        let recipientDisplayName: string;
+
+        if (isCustomer) {
+          // Customer sending to Expert
+          // Need to get expert's email from auth users
+          if (orderData.expert_id) {
+            const { data: expertAuthData } = await supabase.auth.admin.getUserById(orderData.expert_id);
+            recipientEmail = expertAuthData?.user?.email || null;
+          }
+          recipientName = orderData.expert_name;
+          recipientDisplayName = orderData.expert_display_name || orderData.expert_name;
+        } else {
+          // Expert sending to Customer
+          recipientEmail = orderData.customer_email;
+          recipientName = orderData.customer_name;
+          recipientDisplayName = orderData.customer_display_name || orderData.customer_name;
+        }
+
+        if (!recipientEmail) {
+          console.warn('⚠️ No recipient email found');
+          emailError = 'No recipient email';
+        } else {
+          const emailHtml = generateNewMessageEmail({
+            recipientName: recipientDisplayName, // Use display name for privacy
+            senderName: sender_display_name, // Use display name for privacy
+            senderType: sender_type,
+            orderId: orderData.task_code || orderData.id,
+            orderTitle: orderData.title || 'Your Order',
+            messageContent: message_content,
+            messageUrl: `${process.env.NEXT_PUBLIC_APP_URL}/orders/${order_id}`,
+            sentAt: new Date().toLocaleString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+              hour12: true,
+            }),
+          });
+
+          const emailResult = await resend.emails.send({
+            from: 'MyHomeworkHelp Chat <chat@myhomeworkhelp.com>',
+            to: recipientEmail,
+            subject: `💬 New message from ${sender_display_name}`,
+            html: emailHtml,
+          });
+
+          console.log('✅ Email sent:', emailResult);
+          emailSent = true;
+        }
+      } catch (error: any) {
+        console.error('❌ Email send error:', error);
+        emailError = error.message;
+      }
+    }
+
+    return NextResponse.json({ 
+      success: true, 
+      message: data,
+      emailSent,
+      emailError,
+    });
   } catch (error) {
     console.error('💥 Send message error:', error);
     return NextResponse.json(

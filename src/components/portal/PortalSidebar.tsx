@@ -95,7 +95,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       description: 'Dashboard overview',
     },
     {
-      name: isCustomer ? 'Orders' : 'Tasks',
+      name: isCustomer ? 'My Orders' : 'My Tasks',
       href: '/orders',
       icon: ShoppingBagIcon,
       show: true,
@@ -109,7 +109,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       description: 'Chat conversations',
     },
     {
-      name: 'Earnings',
+      name: 'My Earnings',
       href: '/earnings',
       icon: CurrencyDollarIcon,
       show: isExpert,
@@ -120,7 +120,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       href: '/support',
       icon: LifeBuoy,
       show: true,
-      description: 'Get help',
+      description: 'Get help from us',
     },
     {
       name: 'FAQ',

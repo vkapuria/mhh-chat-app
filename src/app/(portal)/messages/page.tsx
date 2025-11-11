@@ -12,6 +12,8 @@ import PullToRefresh from 'react-pull-to-refresh';
 import { ConversationListGrouped } from '@/components/messages/ConversationListGrouped';
 import { trackChatOpened } from '@/lib/analytics';
 import { useUnreadMessagesStore } from '@/store/unread-messages-store';
+import { shouldShowPrivacyModal, markPrivacyModalShown } from '@/lib/privacy-reminder';
+import { PrivacyModal } from '@/components/messages/PrivacyModal';
 
 interface Conversation {
   id: string;
@@ -51,6 +53,20 @@ export default function MessagesPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+
+    useEffect(() => {
+      // Check if we should show privacy modal (once per 24h)
+      if (shouldShowPrivacyModal()) {
+        setShowPrivacyModal(true);
+      }
+    }, []);
+
+    const handleClosePrivacyModal = () => {
+      markPrivacyModalShown();
+      setShowPrivacyModal(false);
+    };
 
   // ✨ SWR for conversations with USER-SPECIFIC caching
   const { data, error, isLoading, mutate } = useSWR<ConversationsResponse>(
@@ -260,6 +276,11 @@ export default function MessagesPage() {
 </div>
         )}
       </div>
+      {/* Privacy Modal */}
+      <PrivacyModal
+        isOpen={showPrivacyModal}
+        onClose={handleClosePrivacyModal}
+      />
     </div>
   );
 }

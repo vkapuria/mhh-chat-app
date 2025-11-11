@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/lib/supabase';
 import { formatDistanceToNow } from 'date-fns';
-import { 
-  PaperAirplaneIcon, 
-  BellIcon,
-  } from '@heroicons/react/24/outline';
+import { PaperAirplaneIcon } from '@heroicons/react/24/outline';
 import { trackMessageSent } from '@/lib/analytics';
 import { usePresenceStore } from '@/store/presence-store';
+import { useNotificationCooldownStore } from '@/store/notification-cooldown-store';
+import { NotificationBanner } from './NotificationBanner';
+import { toast } from 'sonner';
+import { ShieldCheckIcon } from '@heroicons/react/24/outline';
+import { PrivacyModal } from './PrivacyModal';
 
 interface Message {
   id: string;
@@ -32,6 +34,7 @@ interface ChatWindowProps {
   otherPartyName: string;
   otherPartyEmail?: string;
   otherPartyId?: string;
+  otherPartyDisplayName?: string;
   isClosed?: boolean;
   closedReason?: string;
 }
@@ -44,6 +47,7 @@ export function ChatWindow({
   otherPartyName,
   otherPartyEmail,
   otherPartyId,
+  otherPartyDisplayName,
   isClosed = false,
   closedReason,
 }: ChatWindowProps) {
@@ -57,15 +61,26 @@ export function ChatWindow({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const otherPartyTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
-  // Use global presence store instead of local state
+  // Use global presence store
   const isUserOnline = usePresenceStore((state) => state.isUserOnline);
   const isOtherPartyOnline = otherPartyId ? isUserOnline(otherPartyId) : false;
 
-  // Debug: Log state changes
+  // Cooldown store
+  const recordNotification = useNotificationCooldownStore((state) => state.recordNotification);
+  const incrementMessageCount = useNotificationCooldownStore((state) => state.incrementMessageCount);
+  const getCooldown = useNotificationCooldownStore((state) => state.getCooldown);
+  const resetCooldown = useNotificationCooldownStore((state) => state.resetCooldown);
+
+  // Reset cooldown when other party comes online
   useEffect(() => {
-    console.log('🎨 isOtherPartyTyping changed to:', isOtherPartyTyping);
-  }, [isOtherPartyTyping]);
+    if (isOtherPartyOnline) {
+      console.log('🟢 Other party came online, resetting cooldown');
+      resetCooldown(orderId);
+    }
+  }, [isOtherPartyOnline, orderId, resetCooldown]);
 
   // Scroll to bottom
   const scrollToBottom = () => {
@@ -250,7 +265,7 @@ export function ChatWindow({
     }
   }
 
-  async function sendMessage(notify: boolean = false) {
+  async function sendMessage() {
     if (!newMessage.trim() || sending) return;
   
     setSending(true);
@@ -264,6 +279,12 @@ export function ChatWindow({
         setSending(false);
         return;
       }
+
+      const cooldown = getCooldown(orderId);
+      const isFirstMessage = !cooldown;
+      
+      // Auto-notify logic: If recipient offline AND first message → notify
+      const shouldNotify = !isOtherPartyOnline && isFirstMessage;
   
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -278,11 +299,13 @@ export function ChatWindow({
           sender_name: user.user_metadata?.name || 'User',
           sender_display_name: user.user_metadata?.display_name || 'User',
           message_content: newMessage.trim(),
-          send_notification: notify,
+          send_notification: shouldNotify,
         }),
       });
+
+      const result = await response.json();
   
-      if (response.ok) {
+      if (response.ok && result.success) {
         trackMessageSent({
           orderId: orderId,
           userType: currentUserType,
@@ -292,36 +315,73 @@ export function ChatWindow({
         setNewMessage('');
         console.log('✅ Message sent successfully');
         
-        if (notify && otherPartyEmail) {
-          console.log('📧 Sending notification email...');
-          await fetch('/api/messages/notify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`,
-            },
-            body: JSON.stringify({
-              orderId,
-              orderTitle,
-              recipientEmail: otherPartyEmail,
-              recipientName: otherPartyName,
-              senderName: user.user_metadata?.display_name || user.user_metadata?.name,
-              messageContent: newMessage.trim(),
-            }),
-          });
+        if (shouldNotify) {
+          // Record this notification in cooldown store
+          recordNotification(orderId, currentUserId);
+          
+          if (result.emailSent) {
+            toast.success('✅ Message sent & recipient notified');
+          } else {
+            toast.warning('⚠️ Message sent but email notification failed');
+          }
+        } else {
+          // Just increment message count (for batch notification later)
+          if (!isOtherPartyOnline && cooldown) {
+            incrementMessageCount(orderId);
+          }
         }
       } else {
-        const error = await response.json();
-        console.error('Failed to send message:', error);
+        console.error('Failed to send message:', result);
+        toast.error('Failed to send message');
       }
     } catch (error) {
       console.error('Send message error:', error);
+      toast.error('Failed to send message');
     } finally {
       setSending(false);
     }
   }
 
-  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  async function handleSendBatchNotification() {
+    try {
+      console.log('📧 Sending batch notification...');
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expired. Please log in again.');
+        return;
+      }
+
+      const response = await fetch('/api/messages/send-batch-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          order_id: orderId,
+          recipient_email: otherPartyEmail,
+          recipient_name: otherPartyName,
+          recipient_display_name: otherPartyDisplayName || otherPartyName,
+          recipient_type: currentUserType === 'customer' ? 'expert' : 'customer',
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        toast.success(`✅ Email notification sent (${result.messageCount} ${result.messageCount === 1 ? 'message' : 'messages'})`);
+        
+        // Record this notification in the store
+        recordNotification(orderId, currentUserId);
+      } else {
+        toast.error(`❌ ${result.error || 'Failed to send notification'}`);
+      }
+    } catch (error) {
+      console.error('💥 Batch notification error:', error);
+      toast.error('Failed to send notification');
+    }
+  }
 
   function broadcastTyping(isTyping: boolean) {
     if (!typingChannelRef.current) {
@@ -362,7 +422,7 @@ export function ChatWindow({
   function handleKeyPress(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      sendMessage(false);
+      sendMessage();
     }
   }
 
@@ -402,15 +462,39 @@ export function ChatWindow({
         {/* Title Bar - Hidden on mobile */}
         <div className="hidden md:block px-6 py-4 bg-slate-50 border-b border-slate-200">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex-1">
               <h2 className="text-lg font-semibold text-slate-900">{orderTitle}</h2>
-              <p className="text-sm text-slate-600">
-                Chatting with {otherPartyName}
-              </p>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-600">
+                  Chatting with {otherPartyDisplayName || otherPartyName}
+                </span>
+                <span className="text-slate-300">•</span>
+                <button
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="flex items-center gap-1 text-blue-600 hover:text-blue-700 transition-colors group"
+                  title="Click to view privacy guidelines"
+                >
+                  <ShieldCheckIcon className="w-4 h-4" />
+                  <span className="text-xs font-medium group-hover:underline">
+                    Privacy Reminder
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Notification Banner */}
+      {!isClosed && otherPartyId && (
+        <NotificationBanner
+          orderId={orderId}
+          recipientUserId={otherPartyId}
+          recipientName={otherPartyDisplayName || otherPartyName}
+          recipientType={currentUserType === 'customer' ? 'expert' : 'customer'}
+          onSendBatchNotification={handleSendBatchNotification}
+        />
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
@@ -427,7 +511,7 @@ export function ChatWindow({
               ? 'You' 
               : (message.sender_display_name && message.sender_display_name !== 'User' 
                   ? message.sender_display_name 
-                  : otherPartyName);
+                  : (otherPartyDisplayName || otherPartyName));
             
             return (
               <div
@@ -436,14 +520,14 @@ export function ChatWindow({
               >
                 <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'} flex flex-col`}>
                   {/* Always show name, even for own messages */}
-                  <span className="text-xs text-slate-500 mb-1 px-1">
+                  <span className="text-xs text-slate-700 mb-1 px-1">
                     {displayName}
                   </span>
                   <div
                     className={`rounded-2xl px-4 py-2 ${
                       isOwn
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-100 text-slate-900'
+                        ? 'bg-blue-600 text-white border border-blue-900'
+                        : 'bg-slate-100 border border-slate-300 text-slate-900'
                     }`}
                   >
                     <p className="text-sm whitespace-pre-wrap break-words">
@@ -451,11 +535,25 @@ export function ChatWindow({
                     </p>
                   </div>
                   {/* Status line */}
-                  <div className="flex items-center gap-2 mt-1 px-1 text-xs">
+                  <div className="flex items-center gap-2 mt-1 px-1 text-[11px]">
                     {isOwn && (
                       <div className="flex items-center gap-1">
                         <AnimatePresence mode="wait">
-                          {message.is_read ? (
+                          {/* Priority 1: Emailed (if notification was sent) */}
+                          {message.notification_sent ? (
+                            <motion.div
+                              key="emailed"
+                              initial={{ y: 10, opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ y: -10, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="flex items-center gap-1"
+                            >
+                              <img src="/icons/gmail.svg" alt="" className="w-3 h-3" />
+                              <span className="text-green-600 font-medium">Emailed</span>
+                            </motion.div>
+                          ) : message.is_read ? (
+                            /* Priority 2: Read (if not emailed) */
                             <motion.div
                               key="read"
                               initial={{ y: 10, opacity: 0 }}
@@ -483,7 +581,7 @@ export function ChatWindow({
                                 />
                               </div>
                               <motion.span
-                                className="text-blue-600 font-medium"
+                                className="text-indigo-600 font-medium"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 transition={{ duration: 0.3, delay: 0.3 }}
@@ -492,6 +590,7 @@ export function ChatWindow({
                               </motion.span>
                             </motion.div>
                           ) : (
+                            /* Priority 3: Sent (default) */
                             <motion.div
                               key="sent"
                               initial={{ y: 10, opacity: 0 }}
@@ -508,26 +607,12 @@ export function ChatWindow({
                       </div>
                     )}
                     
-                    {isOwn && message.notification_sent && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <div className="flex items-center gap-1">
-                          <img src="/icons/gmail.svg" alt="" className="w-3 h-3" />
-                          <span className="text-slate-500">Emailed</span>
-                        </div>
-                      </>
-                    )}
-                    
-                    {(isOwn || true) && (
-                      <>
-                        <span className="text-slate-300">•</span>
-                        <span className="text-slate-400">
-                          {formatDistanceToNow(new Date(message.created_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </>
-                    )}
+                    <span className="text-slate-500">•</span>
+                    <span className="text-slate-500">
+                      {formatDistanceToNow(new Date(message.created_at), {
+                        addSuffix: true,
+                      })}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -567,7 +652,7 @@ export function ChatWindow({
                   />
                 </div>
                 <span className="text-sm text-white font-medium">
-                  {otherPartyName} is typing...
+                  {otherPartyDisplayName || otherPartyName} is typing...
                 </span>
               </div>
             </motion.div>
@@ -619,27 +704,31 @@ export function ChatWindow({
               rows={2}
               disabled={sending}
             />
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => sendMessage(false)}
-                disabled={sending || !newMessage.trim()}
-                className="px-4 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <PaperAirplaneIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Send</span>
-              </button>
-              <button
-                onClick={() => sendMessage(true)}
-                disabled={sending || !newMessage.trim()}
-                className="px-4 py-3 min-h-[44px] bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
-              >
-                <BellIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Notify</span>
-              </button>
-            </div>
+            <button
+              onClick={sendMessage}
+              disabled={sending || !newMessage.trim()}
+              className="px-6 py-3 min-h-[44px] bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+            >
+              {sending ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Sending...</span>
+                </>
+              ) : (
+                <>
+                  <PaperAirplaneIcon className="w-5 h-5" />
+                  <span>Send</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
+      {/* Privacy Modal */}
+      <PrivacyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 }

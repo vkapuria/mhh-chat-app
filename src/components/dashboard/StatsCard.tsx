@@ -120,8 +120,12 @@ export function StatsCard({
             <div className="w-16 h-16 flex items-center justify-center">
               <LottieIcon
                 animationData={lottieAnimation}
-                className="w-16 h-16 pointer-events-none"
+                className="w-16 h-16"
+                loop={true}        // ✅ Keep loop
+                autoplay={false}   // ✅ Changed from true to false
+                hover={true}       // ✅ Add hover prop
               />
+
             </div>
           ) : (
             <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-600 group-hover:text-slate-900 group-hover:bg-slate-200 transition-all">
@@ -196,9 +200,12 @@ export function StatsCard({
               <div className="w-14 h-14 mb-2 flex items-center justify-center">
                 {lottieAnimation ? (
                   <LottieIcon
-                    animationData={lottieAnimation}
-                    className="w-14 h-14 pointer-events-none"
-                  />
+                  animationData={lottieAnimation}
+                  className="w-14 h-14"
+                  loop={true}        // ✅ Keep loop
+                  autoplay={false}   // ✅ Changed from true to false
+                  hover={true}       // ✅ Add hover prop
+                />
                 ) : (
                   <div className="w-14 h-14 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600">
                     <div className="scale-125">{icon}</div>
@@ -243,9 +250,12 @@ export function StatsCard({
               <div className="w-14 h-14 mb-2 flex items-center justify-center">
                 {secondaryLottieAnimation ? (
                   <LottieIcon
-                    animationData={secondaryLottieAnimation}
-                    className="w-14 h-14 pointer-events-none"
-                  />
+                  animationData={secondaryLottieAnimation}
+                  className="w-14 h-14"
+                  loop={true}        // ✅ Keep loop
+                  autoplay={false}   // ✅ Changed from true to false
+                  hover={true}       // ✅ Add hover prop
+                />
                 ) : null}
               </div>
 
