@@ -1,0 +1,8 @@
+# Homework Hub - Private Application
+# This app is behind authentication and should not be indexed
+
+User-agent: *
+Disallow: /
+
+# Allow only login page to be crawled (optional)
+Allow: /login

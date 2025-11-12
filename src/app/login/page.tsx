@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FeatureCarousel } from '@/components/login/FeatureCarousel';
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,21 +15,47 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [role, setRole] = useState<'customer' | 'expert'>('customer');
+  const [showPwd, setShowPwd] = useState(false);
+  const [showHelper, setShowHelper] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setErrors({});
+  
+    // simple client-side checks
+    const emailOk = /\S+@\S+\.\S+/.test(email);
+    if (!emailOk) {
+      setLoading(false);
+      setErrors({ email: 'Enter a valid email address.' });
+      return;
+    }
+    if (!password) {
+      setLoading(false);
+      setErrors({ password: 'Password is required.' });
+      return;
+    }
+  
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       if (data.user) router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in');
+      // map most auth failures to password line (keeps the form calm)
+      const msg = (err?.message || '').toLowerCase();
+      if (msg.includes('invalid') || msg.includes('password') || msg.includes('credentials')) {
+        setErrors({ password: 'Invalid email or password.' });
+      } else {
+        setError('Sign-in failed. Please try again.'); // optional tiny top message if you still want one
+      }
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -52,7 +79,7 @@ export default function LoginPage() {
             <a href="https://myhomeworkhelp.com/submit-homework-form/"
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all shadow-md hover:shadow-lg text-sm lg:text-base"
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all text-sm lg:text-base"
           >
             Get Homework Help
           </a>
@@ -69,41 +96,55 @@ export default function LoginPage() {
             transition={{ duration: 0.5 }}
             className="w-full max-w-md"
           >
-            {/* Welcome Text */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Customer & Expert Portal</h1>
-              <p className="text-sm text-slate-600">
-                Sign in to track orders, chat with experts, and manage support tickets
-              </p>
-            </div>
+            {/* Eyebrow + H1 + Tabs */}
+<div className="mb-6">
+  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+    Customer & Expert Portal
+  </p>
+  <h1 className="mt-1 text-3xl font-bold text-slate-900">Sign in</h1>
+  <p className="mt-1 text-sm text-slate-600">
+    Access your assignments, chat, and support in one place.
+  </p>
 
-            {/* Info Banner */}
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900 font-medium mb-1">Don't have an account?</p>
-              <p className="text-xs text-blue-700">
-                Accounts are automatically created for all paying customers and verified experts.{' '}
-                <a 
-                  href="https://myhomeworkhelp.com/submit-homework-form/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="font-semibold underline hover:text-blue-800"
-                >
-                  Place an order
-                </a> to get started!
-              </p>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg"
-              >
-                <p className="text-sm text-red-600">{error}</p>
-              </motion.div>
-            )}
-
+{/* Animated Toggle */}
+<div className="mt-4 relative inline-flex rounded-lg border border-slate-300 p-1 bg-slate-50">
+    {/* Sliding background */}
+    <motion.div
+      className="absolute top-1 bottom-1 rounded-md bg-slate-900"
+      initial={false}
+      animate={{
+        left: role === 'customer' ? '4px' : 'calc(50% + 2px)',
+        right: role === 'customer' ? 'calc(50% + 2px)' : '4px',
+      }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+    />
+    
+    <button
+      type="button"
+      onClick={() => setRole('customer')}
+      className={`relative z-10 w-24 py-2 text-sm font-medium rounded-md transition-colors ${
+        role === 'customer'
+          ? 'text-white'
+          : 'text-slate-700 hover:text-slate-900'
+      }`}
+      aria-pressed={role === 'customer'}
+    >
+      Customer
+    </button>
+    <button
+      type="button"
+      onClick={() => setRole('expert')}
+      className={`relative z-10 w-24 py-2 text-sm font-medium rounded-md transition-colors ${
+        role === 'expert'
+          ? 'text-white'
+          : 'text-slate-700 hover:text-slate-900'
+      }`}
+      aria-pressed={role === 'expert'}
+    >
+      Expert
+    </button>
+  </div>
+</div>
             {/* Login Form */}
             <form onSubmit={handleLogin} className="space-y-6">
               <div>
@@ -116,67 +157,174 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
-                  className="w-full px-4 py-3 border-2 border-slate-400 hover:border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   required
                   autoComplete="email"
                 />
+                {errors.email && (
+  <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+)}
+
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-4 py-3 border-2 border-slate-400 hover:border-slate-500 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                  required
-                  autoComplete="current-password"
-                />
-              </div>
+  <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+    Password
+  </label>
+  <div className="relative">
+    <input
+      id="password"
+      type={showPwd ? 'text' : 'password'}
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      placeholder="••••••••"
+      className="w-full pr-12 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+      required
+      autoComplete="current-password"
+    />
+    <button
+      type="button"
+      onClick={() => setShowPwd((s) => !s)}
+      className="absolute inset-y-0 right-2 my-auto px-2 text-xs text-slate-600 hover:text-slate-800 rounded"
+      aria-label={showPwd ? 'Hide password' : 'Show password'}
+    >
+      {showPwd ? 'Hide' : 'Show'}
+    </button>
+  </div>
+  {errors.email && (
+  <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+)}
+</div>
+
 
               <button
   type="submit"
   disabled={loading}
-  className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-[0.98]"
+  className="w-full py-3 bg-slate-950 hover:bg-slate-800 text-white font-semibold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl active:scale-[0.98] inline-flex items-center justify-center gap-2"
 >
-  {loading ? 'Signing In...' : 'Sign In'}
+  <span aria-hidden>🔒</span>
+  <span>{loading ? 'Signing In...' : 'Sign In'}</span>
 </button>
-<div className="mt-1 flex items-center justify-center gap-2 text-xs text-slate-500">
-  <span>🔒 SSL Secure</span>
-  <span>•</span>
-  <span>Data Privacy Protected</span>
-</div>
+
               </form>
 
-              {/* Forgot Password & Support Links */}
-              <div className="mt-4 text-center">
-                <p className="text-sm text-slate-600">
-                  <Link href="/forgot-password" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Forgot your password?
-                  </Link>
-                  {' • '}
-                  Need help?{' '}
-                  <a href="https://myhomeworkhelp.com/contact/" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-700 font-medium">
-                    Contact Support
-                  </a>
-                </p>
-              </div>
+{/* Mini legal + link row with collapsible trigger */}
+<div className="mt-3 flex flex-col items-center gap-2">
+  <div className="flex items-center justify-center gap-3 text-[11px] text-slate-500">
+    <Link href="/forgot-password" className="hover:text-slate-700 underline underline-offset-2">
+      Forgot password?
+    </Link>
+    <span aria-hidden>•</span>
+    <a href="https://myhomeworkhelp.com/disclaimer/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 underline underline-offset-2">
+      Terms
+    </a>
+    <span aria-hidden>•</span>
+    <a href="https://myhomeworkhelp.com/money-back-guarantee/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-700 underline underline-offset-2">
+      Refund
+    </a>
+  </div>
+  
+  {/* Collapsible trigger */}
+  <button
+    type="button"
+    onClick={() => setShowHelper(!showHelper)}
+    className="text-[11px] text-blue-600 hover:text-blue-700 font-medium underline underline-offset-2"
+  >
+    {showHelper ? '− Hide help' : '+ New here?'}
+  </button>
+  
+  {/* Collapsible content */}
+  <AnimatePresence>
+    {showHelper && (
+      <motion.div
+        initial={{ height: 0, opacity: 0 }}
+        animate={{ height: 'auto', opacity: 1 }}
+        exit={{ height: 0, opacity: 0 }}
+        transition={{ duration: 0.2 }}
+        className="overflow-hidden w-full"
+      >
+        <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <p className="text-xs text-blue-900 font-medium mb-1">
+            {role === 'customer' ? "New to MyHomeworkHelp?" : "New expert?"}
+          </p>
+          
+          {role === 'customer' ? (
+            <p className="text-xs text-blue-700">
+              Customer accounts are created automatically after your first order.{' '}
+              
+               <a href="https://myhomeworkhelp.com/submit-homework-form/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline hover:text-blue-800"
+              >
+                Place an order
+              </a>{' '}
+              to get started.
+            </p>
+          ) : (
+            <p className="text-xs text-blue-700">
+              Expert access is granted after verification. If you've applied, please use your registered email.
+              For onboarding, contact{' '}
+              
+               <a href="https://myhomeworkhelp.com/contact-us/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold underline hover:text-blue-800"
+              >
+                support
+              </a>.
+            </p>
+          )}
+        </div>
+      </motion.div>
+    )}
+  </AnimatePresence>
+</div>
 
-            {/* Social Proof */}
-            <div className="mt-12 text-center">
-              <p className="text-xs text-slate-500">
-                Join <span className="font-bold text-slate-700">2,500+ students</span> already using our portal
+
+            {/* University Social Proof */}
+            <div className="mt-10 text-center">
+              <p className="text-sm text-slate-700 font-semibold mb-3">
+                Trusted by <span className="text-blue-600">200,000+ students</span> from 258 universities worldwide
+              </p>
+              
+              {/* University Logos */}
+              <div className="flex items-center justify-center gap-6 opacity-70">
+                {/* Harvard Shield */}
+                <div className="w-10 h-10 bg-[#A51C30] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">H</span>
+                </div>
+                
+                {/* Yale Shield */}
+                <div className="w-10 h-10 bg-[#00356B] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">Y</span>
+                </div>
+                
+                {/* Stanford Shield */}
+                <div className="w-10 h-10 bg-[#8C1515] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">S</span>
+                </div>
+                
+                {/* MIT Shield */}
+                <div className="w-10 h-10 bg-[#A31F34] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">M</span>
+                </div>
+                
+                {/* Generic University Shield */}
+                <div className="w-10 h-10 bg-[#003262] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xs">U</span>
+                </div>
+              </div>
+              
+              <p className="text-xs text-slate-400 mt-2">
+                ...and many more
               </p>
             </div>
           </motion.div>
         </div>
 
         {/* Right Side - Mockups with Floating CTA */}
-         <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 items-center justify-center p-0 relative">
+         <div className="hidden lg:flex lg:w-1/2 bg-slate-50 items-center justify-center p-0 relative"         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -184,33 +332,10 @@ export default function LoginPage() {
             className="w-full h-full max-w-4xl flex flex-col"
           >
             {/* Carousel */}
-            <div className="flex-1 flex items-center justify-center" style={{ transform: 'scale(0.90)', transformOrigin: 'center' }}>
+            <div className="flex-1 flex items-center justify-center" style={{ transform: 'scale(0.85)', transformOrigin: 'center' }}>
     <FeatureCarousel />
   </div>
 
-
-            {/* Floating CTA Below Mockups */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.8 }}
-              className="mt-2 flex flex-col items-center gap-3"
-            >
-              <p className="text-sm text-slate-700 font-medium">
-                Ready to get started?
-              </p>
-              
-                <a href="https://myhomeworkhelp.com/submit-homework-form/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg transition-all shadow-lg hover:shadow-xl text-base"
-              >
-                Get Homework Help Now →
-              </a>
-              <p className="text-xs text-slate-500">
-                Your account will be created automatically
-              </p>
-            </motion.div>
           </motion.div>
         </div>
       </div>
