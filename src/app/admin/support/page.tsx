@@ -1,53 +1,147 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import useSWR from 'swr';
+import clsx from 'clsx';
 import { fetcher } from '@/lib/fetcher';
 import { SupportTicket } from '@/types/support';
 import { TicketList } from '@/components/admin/TicketList';
-import { Card } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CheckCircle, Clock, AlertCircle, Inbox } from 'lucide-react';
-import { formatTicketNumber } from '@/lib/ticket-utils';
-import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
+import { AdminTicketCreationModal } from '@/components/admin/AdminTicketCreationModal';
+import { Button } from '@/components/ui/button';
+import { Inbox, Plus, Layers3 } from 'lucide-react';
+import { Square3Stack3DIcon } from '@heroicons/react/24/outline';
+/* ---------------- Types & Helpers ---------------- */
 
-type StatusFilter = 'all' | 'submitted' | 'in_progress' | 'resolved';
+type QuickFilter =
+  | 'all'
+  | 'submitted'
+  | 'awaiting_admin'
+  | 'awaiting_user'
+  | 'resolved'
+  | 'sla_ok'
+  | 'sla_warn'
+  | 'sla_over';
 
-export default function AdminSupportPage() {
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-
-  // Always fetch ALL tickets (no status filter in API call)
-const { data, error, isLoading, mutate } = useSWR<{
+// API response type
+interface TicketsResponse {
   success: boolean;
   tickets: SupportTicket[];
-}>(
-  `/api/support/tickets`,
-  fetcher
-);
+  resolved_groups?: {
+    thisWeek: SupportTicket[];
+    last30Days: SupportTicket[];
+    older: SupportTicket[];
+  };
+}
 
-// Get all tickets
-const allTickets = data?.tickets || [];
+function isAwaitingAdmin(t: SupportTicket) {
+  return t.status === 'in_progress' && t.last_reply_by === 'user';
+}
+function isAwaitingUser(t: SupportTicket) {
+  return t.status === 'in_progress' && t.last_reply_by === 'admin';
+}
 
-// Filter tickets on frontend based on selected tab
-const tickets = statusFilter === 'all' 
-  ? allTickets
-  : allTickets.filter(t => t.status === statusFilter);
+function getSlaState(t: SupportTicket): 'green' | 'amber' | 'red' {
+  // Resolved tickets have no SLA
+  if (t.status === 'resolved') return 'green';
+  
+  const now = Date.now();
+  let base: string;
+  
+  if (t.status === 'submitted') {
+    // New tickets: measure time since creation (waiting for first admin response)
+    base = t.created_at;
+  } else if (t.status === 'in_progress') {
+    // In progress: only apply SLA if customer replied last (admin needs to respond)
+    if (t.last_reply_by === 'admin') {
+      // Admin responded, waiting on customer → NO SLA pressure
+      return 'green';
+    } else {
+      // Customer replied last, admin needs to respond → SLA applies
+      base = t.updated_at || t.created_at;
+    }
+  } else {
+    base = t.created_at;
+  }
+  
+  const ms = Math.max(0, now - new Date(base).getTime());
+  const hours = ms / 36e5;
+  
+  if (hours < 24) return 'green';    // Less than 1 day
+  if (hours < 48) return 'amber';    // 1-2 days
+  return 'red';                       // 2+ days
+}
 
-  // Count by status (ALWAYS from all tickets, not filtered)
-const counts = {
-  all: allTickets.length,
-  submitted: allTickets.filter((t) => t.status === 'submitted').length,
-  in_progress: allTickets.filter((t) => t.status === 'in_progress' && t.last_reply_by === 'admin').length,
-  awaiting_response: allTickets.filter((t) => t.status === 'in_progress' && t.last_reply_by === 'user').length,
-  resolved: allTickets.filter((t) => t.status === 'resolved').length,
-};
+/* ---------------- Page ---------------- */
+
+export default function AdminSupportPage() {
+  const [filter, setFilter] = useState<QuickFilter>('all');
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false); // ADD THIS
+
+  const { data, error, isLoading, mutate } = useSWR<TicketsResponse>(
+    '/api/support/tickets',
+    fetcher
+  );
+
+  const allTickets = data?.tickets || [];
+
+  // Counts for tabs
+  const counts = useMemo(() => {
+    const c: Record<QuickFilter, number> = {
+      all: allTickets.length,
+      submitted: 0,
+      awaiting_admin: 0,
+      awaiting_user: 0,
+      resolved: 0,
+      sla_ok: 0,
+      sla_warn: 0,
+      sla_over: 0,
+    };
+    for (const t of allTickets) {
+      if (t.status === 'submitted') c.submitted++;
+      if (t.status === 'resolved') c.resolved++;
+      if (isAwaitingAdmin(t)) c.awaiting_admin++;
+      if (isAwaitingUser(t)) c.awaiting_user++;
+
+      // Only calculate SLA for non-resolved tickets
+      if (t.status !== 'resolved') {
+        const sla = getSlaState(t);
+        if (sla === 'green') c.sla_ok++;
+        if (sla === 'amber') c.sla_warn++;
+        if (sla === 'red') c.sla_over++;
+      }
+    }
+    return c;
+  }, [allTickets]);
+
+  // Apply filter
+  const tickets = useMemo(() => {
+    switch (filter) {
+      case 'submitted':
+        return allTickets.filter((t) => t.status === 'submitted');
+      case 'awaiting_admin':
+        return allTickets.filter(isAwaitingAdmin);
+      case 'awaiting_user':
+        return allTickets.filter(isAwaitingUser);
+      case 'resolved':
+        return allTickets.filter((t) => t.status === 'resolved');
+      case 'sla_ok':
+        return allTickets.filter((t) => t.status !== 'resolved' && getSlaState(t) === 'green');
+      case 'sla_warn':
+        return allTickets.filter((t) => t.status !== 'resolved' && getSlaState(t) === 'amber');
+      case 'sla_over':
+        return allTickets.filter((t) => t.status !== 'resolved' && getSlaState(t) === 'red');
+      default:
+        return allTickets;
+    }
+  }, [allTickets, filter]);
 
   if (error) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <p className="text-red-600 font-semibold">Failed to load tickets</p>
-          <p className="text-sm text-slate-600 mt-2">{error?.message}</p>
+          <p className="text-sm text-slate-600 mt-2">{(error as any)?.message}</p>
         </div>
       </div>
     );
@@ -56,91 +150,73 @@ const counts = {
   return (
     <div>
       {/* Header */}
-      <div className="mb-4 md:mb-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Support Tickets</h2>
-        <p className="mt-1 md:mt-2 text-sm md:text-base text-slate-600">
-          Manage customer and expert support requests
-        </p>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="mb-6 md:mb-8">
-        {/* Total Card - Full Width */}
-        <Card className="p-4 mb-3 md:mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm text-slate-600">Total Tickets</p>
-            <Inbox className="w-6 h-6 md:w-7 md:h-7 text-slate-400" />
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{counts.all}</p>
-        </Card>
-
-        {/* Other Cards - 2x2 Grid on Mobile, Single Row on Desktop */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-          <Card className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs md:text-sm text-slate-600">Open</p>
-              <Clock className="w-5 h-5 md:w-6 md:h-6 text-blue-400" />
-            </div>
-            <p className="text-xl md:text-2xl font-bold text-blue-600">{counts.submitted}</p>
-          </Card>
-
-          <Card className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs md:text-sm text-slate-600">In Progress</p>
-              <AlertCircle className="w-5 h-5 md:w-6 md:h-6 text-amber-400" />
-            </div>
-            <p className="text-xl md:text-2xl font-bold text-amber-600">{counts.in_progress}</p>
-          </Card>
-
-          <Card className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs md:text-sm text-slate-600">Awaiting</p>
-              <ChatBubbleLeftRightIcon className="w-5 h-5 md:w-6 md:h-6 text-red-400" />
-            </div>
-            <p className="text-xl md:text-2xl font-bold text-red-600">{counts.awaiting_response}</p>
-          </Card>
-
-          <Card className="p-3 md:p-4">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs md:text-sm text-slate-600">Resolved</p>
-              <CheckCircle className="w-5 h-5 md:w-6 md:h-6 text-green-400" />
-            </div>
-            <p className="text-xl md:text-2xl font-bold text-green-600">{counts.resolved}</p>
-          </Card>
+      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Support Tickets</h2>
+          <p className="mt-1 text-sm md:text-base text-slate-600">
+            Manage customer and expert support requests
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button
+            onClick={() => setIsSelectionMode(!isSelectionMode)}
+            variant={isSelectionMode ? "default" : "outline"}
+            className={isSelectionMode ? "bg-blue-600 hover:bg-blue-700" : ""}
+          >
+            <Square3Stack3DIcon className="w-4 h-4 mr-2" />
+            {isSelectionMode ? 'Exit Selection' : 'Select Tickets'}
+          </Button>
+          <Button
+            onClick={() => setCreateModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Proactive Ticket
+          </Button>
         </div>
       </div>
 
-      {/* Status Filters */}
-      <Tabs
-        value={statusFilter}
-        onValueChange={(v) => setStatusFilter(v as StatusFilter)}
-        className="mb-4 md:mb-6"
-      >
-        <TabsList className="grid w-full grid-cols-4 h-auto">
-          <TabsTrigger value="all" className="text-xs md:text-sm py-2 md:py-2.5">
-            <span className="hidden sm:inline">All</span>
-            <span className="sm:hidden">All</span>
-            <span className="ml-0.5 md:ml-1">({counts.all})</span>
-          </TabsTrigger>
-          <TabsTrigger value="submitted" className="text-xs md:text-sm py-2 md:py-2.5">
-            <span className="hidden sm:inline">Open</span>
-            <span className="sm:hidden">Open</span>
-            <span className="ml-0.5 md:ml-1">({counts.submitted})</span>
-          </TabsTrigger>
-          <TabsTrigger value="in_progress" className="text-xs md:text-sm py-2 md:py-2.5">
-            <span className="hidden sm:inline">In Progress</span>
-            <span className="sm:hidden">Progress</span>
-            <span className="ml-0.5 md:ml-1">({counts.in_progress})</span>
-          </TabsTrigger>
-          <TabsTrigger value="resolved" className="text-xs md:text-sm py-2 md:py-2.5">
-            <span className="hidden sm:inline">Resolved</span>
-            <span className="sm:hidden">Done</span>
-            <span className="ml-0.5 md:ml-1">({counts.resolved})</span>
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
+      {/* Filter Bar */}
+      <div className="mb-4 bg-white border border-slate-200 rounded-lg px-3 py-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            { id: 'all', label: 'All' },
+            { id: 'submitted', label: 'Open' },
+            { id: 'awaiting_admin', label: 'Awaiting Admin' },
+            { id: 'awaiting_user', label: 'Awaiting User' },
+            { id: 'resolved', label: 'Resolved' },
+            { id: 'sla_ok', label: '🟢 SLA OK' },
+            { id: 'sla_warn', label: '🟠 Warning' },
+            { id: 'sla_over', label: '🔴 Overdue' },
+          ] as { id: QuickFilter; label: string }[]).map((tab) => {
+            const active = filter === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setFilter(tab.id)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 h-8 rounded-md text-sm font-medium transition-all',
+                  active
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-800 hover:bg-slate-100'
+                )}
+              >
+                <span>{tab.label}</span>
+                <span
+                  className={clsx(
+                    'px-1.5 rounded text-[11px] font-semibold leading-tight min-w-[22px] text-center',
+                    active ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-700'
+                  )}
+                >
+                  {counts[tab.id]}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-      {/* Tickets List */}
+      {/* Kanban */}
       {isLoading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -148,17 +224,28 @@ const counts = {
           ))}
         </div>
       ) : tickets.length === 0 ? (
-        <Card className="p-12 text-center">
+        <div className="p-12 text-center bg-white border border-slate-200 rounded-lg">
           <Inbox className="w-12 h-12 text-slate-400 mx-auto mb-3" />
           <p className="text-slate-600">
-            {statusFilter === 'all'
-              ? 'No support tickets yet'
-              : `No ${statusFilter.replace('_', ' ')} tickets`}
+            {filter === 'all' ? 'No support tickets yet' : 'No tickets for this filter'}
           </p>
-        </Card>
+        </div>
       ) : (
-        <TicketList tickets={tickets} onUpdate={mutate} />
+        <TicketList 
+          tickets={tickets} 
+          resolved_groups={data?.resolved_groups}
+          onUpdate={mutate}
+          isSelectionMode={isSelectionMode}
+          onToggleSelectionMode={() => setIsSelectionMode(!isSelectionMode)}
+        />
       )}
+
+      {/* Create Ticket Modal */}
+      <AdminTicketCreationModal
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSuccess={mutate}
+      />
     </div>
   );
 }

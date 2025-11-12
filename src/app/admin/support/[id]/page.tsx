@@ -425,30 +425,69 @@ ${currentAdminName}`
               
               {/* Original Post */}
               <div className="flex items-start gap-3 md:gap-4">
-                {ticket.user_avatar_url ? (
-                  <Image 
-                    src={ticket.user_avatar_url} 
-                    alt={ticket.user_display_name}
-                    width={36}
-                    height={36}
-                    className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-400"
-                  />
+                {ticket.created_by_admin_name ? (
+                  // Admin-initiated ticket: Show admin avatar
+                  <>
+                    {ticket.admin_avatar ? (
+                      <Image 
+                        src={ticket.admin_avatar} 
+                        alt={ticket.created_by_admin_name}
+                        width={36}
+                        height={36}
+                        className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-purple-400"
+                      />
+                    ) : (
+                      <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-semibold text-sm md:text-lg" title={ticket.created_by_admin_name}>
+                        {getInitials(ticket.created_by_admin_name)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 md:gap-2 mb-1 flex-wrap">
+                        <span className="font-semibold text-gray-900 text-sm md:text-base">{ticket.created_by_admin_name}</span>
+                        <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] md:text-xs font-medium text-purple-800">
+                          Admin
+                        </span>
+                        <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
+                      </div>
+                      <div className="mb-2 text-xs text-purple-600 font-medium">
+                        📋 For: {ticket.user_display_name} ({ticket.user_type})
+                      </div>
+                      <div className="p-3 md:p-4 bg-purple-50 border border-purple-200 rounded-lg">
+                        <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words">
+                          {ticket.message}
+                        </p>
+                      </div>
+                    </div>
+                  </>
                 ) : (
-                  <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-sm md:text-lg" title={ticket.user_display_name}>
-                    {getInitials(ticket.user_display_name)}
-                  </div>
+                  // Regular ticket: Show user avatar
+                  <>
+                    {ticket.user_avatar_url ? (
+                      <Image 
+                        src={ticket.user_avatar_url} 
+                        alt={ticket.user_display_name}
+                        width={36}
+                        height={36}
+                        className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full object-cover border-2 border-gray-400"
+                      />
+                    ) : (
+                      <div className="flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full bg-gray-700 flex items-center justify-center text-white font-semibold text-sm md:text-lg" title={ticket.user_display_name}>
+                        {getInitials(ticket.user_display_name)}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 md:gap-2 mb-1 flex-wrap">
+                        <span className="font-semibold text-gray-900 text-sm md:text-base">{ticket.user_display_name}</span>
+                        <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
+                      </div>
+                      <div className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words">
+                          {ticket.message}
+                        </p>
+                      </div>
+                    </div>
+                  </>
                 )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 md:gap-2 mb-1 flex-wrap">
-                    <span className="font-semibold text-gray-900 text-sm md:text-base">{ticket.user_display_name}</span>
-                    <span className="text-xs text-gray-500">&middot; {formatDistanceToNow(new Date(ticket.created_at), { addSuffix: true })}</span>
-                  </div>
-                  <div className="p-3 md:p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                    <p className="text-gray-700 text-xs md:text-sm whitespace-pre-wrap break-words">
-                      {ticket.message}
-                    </p>
-                  </div>
-                </div>
               </div>
 
               {/* Replies Loop */}
@@ -677,7 +716,7 @@ ${currentAdminName}`
                 </div>
               </dl>
               
-              {/* User Info */}
+              {/* Creator Info (Admin or User) */}
               <h4 className="text-xs font-semibold uppercase text-black mb-3 border-t pt-5 flex items-center gap-1.5">
                 <Image 
                   src="/icons/user-profile.svg" 
@@ -686,21 +725,49 @@ ${currentAdminName}`
                   height={20}
                   className="w-6 h-6"
                 />
-                User Info
+                {ticket.created_by_admin_name ? 'Ticket Info' : 'User Info'}
               </h4>
               <dl className="text-sm space-y-3 mb-6">
-                <div className="flex justify-between gap-2">
-                  <dt className="font-medium text-gray-500">Name</dt>
-                  <dd className="text-gray-700 font-semibold truncate">{ticket.user_display_name}</dd>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <dt className="font-medium text-gray-500">Email</dt>
-                  <dd className="text-gray-700 truncate" title={ticket.user_email}>{ticket.user_email}</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="font-medium text-gray-500">Type</dt>
-                  <dd className="text-gray-700 capitalize">{ticket.user_type || 'Customer'}</dd>
-                </div>
+                {ticket.created_by_admin_name ? (
+                  <>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Created By</dt>
+                      <dd className="text-purple-700 font-semibold truncate">{ticket.created_by_admin_name}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Type</dt>
+                      <dd className="text-purple-700 font-semibold">Admin</dd>
+                    </div>
+                    <div className="h-px bg-gray-200 my-3"></div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Recipient</dt>
+                      <dd className="text-gray-700 font-semibold truncate">{ticket.user_display_name}</dd>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <dt className="font-medium text-gray-500">Email</dt>
+                      <dd className="text-gray-700 truncate" title={ticket.user_email}>{ticket.user_email}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Type</dt>
+                      <dd className="text-gray-700 capitalize">{ticket.user_type || 'Customer'}</dd>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Name</dt>
+                      <dd className="text-gray-700 font-semibold truncate">{ticket.user_display_name}</dd>
+                    </div>
+                    <div className="flex justify-between items-center gap-2">
+                      <dt className="font-medium text-gray-500">Email</dt>
+                      <dd className="text-gray-700 truncate" title={ticket.user_email}>{ticket.user_email}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="font-medium text-gray-500">Type</dt>
+                      <dd className="text-gray-700 capitalize">{ticket.user_type || 'Customer'}</dd>
+                    </div>
+                  </>
+                )}
               </dl>
               
               {/* Order Info */}

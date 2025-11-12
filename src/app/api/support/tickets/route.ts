@@ -208,30 +208,58 @@ console.log('Order fetched:', order);
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       );
 
-      let query = supabase
+      // Fetch active tickets (submitted + in_progress)
+      let activeQuery = supabase
         .from('support_tickets')
         .select(`
           *,
           replies:ticket_replies(id, message, created_at, reply_type, admin_name)
         `)
-        .order('created_at', { ascending: false });
-    
-      // Apply status filter if provided
-      if (statusFilter && statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
-      }
+        .in('status', ['submitted', 'in_progress'])
+        .order('updated_at', { ascending: false });
     
       // Non-admin users only see their own tickets
       if (userType !== 'admin') {
-        query = query.eq('user_id', user.id);
+        activeQuery = activeQuery.eq('user_id', user.id);
       }
     
-      const { data: tickets, error: fetchError } = await query;
+      const { data: activeTickets, error: activeError } = await activeQuery;
 
-      if (fetchError) {
-        console.error('Fetch tickets error:', fetchError);
-        return NextResponse.json({ error: fetchError.message }, { status: 500 });
+      if (activeError) {
+        console.error('Fetch active tickets error:', activeError);
+        return NextResponse.json({ error: activeError.message }, { status: 500 });
       }
+
+// Fetch resolved tickets separately (only recent ones for performance)
+      // Load more groups on demand later
+      const now = new Date();
+      const last30DaysStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      let resolvedQuery = supabase
+        .from('support_tickets')
+        .select(`
+          *,
+          replies:ticket_replies(id, message, created_at, reply_type, admin_name)
+        `)
+        .eq('status', 'resolved')
+        .gte('resolved_at', last30DaysStart.toISOString()) // Only last 30 days
+        .order('resolved_at', { ascending: false })
+        .limit(50); // Safety limit
+    
+      // Non-admin users only see their own tickets
+      if (userType !== 'admin') {
+        resolvedQuery = resolvedQuery.eq('user_id', user.id);
+      }
+    
+      const { data: resolvedTickets, error: resolvedError } = await resolvedQuery;
+
+      if (resolvedError) {
+        console.error('Fetch resolved tickets error:', resolvedError);
+        return NextResponse.json({ error: resolvedError.message }, { status: 500 });
+      }
+
+      // Combine for processing
+      const tickets = [...(activeTickets || []), ...(resolvedTickets || [])];
 
       // Get unique user IDs
       const userIds = [...new Set(tickets?.map(t => t.user_id).filter(Boolean))];
@@ -300,9 +328,43 @@ console.log('Order fetched:', order);
         };
       }) || [];
 
+      // Group resolved tickets by time buckets
+      const thisWeekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      const resolvedGroups = {
+        thisWeek: [] as any[],
+        last30Days: [] as any[],
+        older: [] as any[],
+      };
+
+      ticketsWithCount.forEach(ticket => {
+        if (ticket.status === 'resolved') {
+          const resolvedDate = new Date(ticket.resolved_at || ticket.updated_at);
+          
+          if (resolvedDate >= thisWeekStart) {
+            resolvedGroups.thisWeek.push(ticket);
+          } else if (resolvedDate >= last30DaysStart) {
+            resolvedGroups.last30Days.push(ticket);
+          } else {
+            resolvedGroups.older.push(ticket);
+          }
+        }
+      });
+
+// Get count of older tickets for display (but don't load them yet)
+const { count: olderCount } = await supabase
+  .from('support_tickets')
+  .select('*', { count: 'exact', head: true })
+  .eq('status', 'resolved')
+  .lt('resolved_at', last30DaysStart.toISOString());
+
       return NextResponse.json({
         success: true,
         tickets: ticketsWithCount,
+        resolved_groups: {
+          ...resolvedGroups,
+          older_count: olderCount || 0, // Don't load, just show count
+        },
       });
     }
 
