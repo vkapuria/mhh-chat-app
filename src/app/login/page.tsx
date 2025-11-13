@@ -20,29 +20,7 @@ export default function LoginPage() {
   const [role, setRole] = useState<'customer' | 'expert'>('customer');
   const [showPwd, setShowPwd] = useState(false);
   const [showHelper, setShowHelper] = useState(false);
-   // Auto-redirect if already logged in
-   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // Get user type from profile
-        const { data: profile } = await supabase
-          .from('users')
-          .select('user_type')
-          .eq('id', session.user.id)
-          .single();
-        
-        // Redirect based on user type
-        if (profile?.user_type === 'admin') {
-          router.push('/admin');
-        } else {
-          router.push('/dashboard');
-        }
-      }
-    };
     
-    checkAuth();
-  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
