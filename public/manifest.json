@@ -1,24 +1,24 @@
 {
-  "name": "Homework Hub - Student & Expert Portal",
-  "short_name": "Homework Hub",
-  "description": "Secure messaging and support platform connecting students with academic experts",
-  "start_url": "/",
+  "name": "MyHomeworkHelp - Customer & Expert Portal",
+  "short_name": "MyHomeworkHelp",
+  "description": "Secure portal for MyHomeworkHelp students and experts. Track orders, chat with experts, and get support.",
+  "start_url": "/login",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#4F46E5",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
-      "sizes": "192x192",
+      "src": "/favicon-96x96.png",
+      "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "/android-chrome-512x512.png",
-      "sizes": "512x512",
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
       "type": "image/png"
     }
   ],
-  "categories": ["education", "productivity"],
+  "categories": ["education", "productivity", "communication"],
   "screenshots": []
 }
