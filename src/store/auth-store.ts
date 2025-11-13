@@ -75,9 +75,11 @@ export const useAuthStore = create<AuthStore>()(
         }
 
         console.log('🔵 Initializing auth store...');
-        set({ loading: true, initialized: true });
+        
+        // Clear any persisted user data first - don't trust it until verified
+        set({ user: null, loading: true, initialized: true });
 
-         try {
+        try {
           // Get current session - use getSession() instead of getUser()
           const { data: { session }, error } = await supabase.auth.getSession();
 
@@ -105,6 +107,11 @@ export const useAuthStore = create<AuthStore>()(
         // Listen for auth state changes (login/logout)
         supabase.auth.onAuthStateChange(async (event, session) => {
           console.log('🔵 Auth state changed:', event);
+
+          // Don't process INITIAL_SESSION - we handle that in initializeAuth
+          if (event === 'INITIAL_SESSION') {
+            return;
+          }
 
           if (event === 'SIGNED_IN' && session?.user) {
             const mappedUser = mapSupabaseUser(session.user);
@@ -153,8 +160,27 @@ export const useAuthStore = create<AuthStore>()(
       // Sign out
       signOut: async () => {
         set({ loading: true });
+        
+        // Clear login tracking
+        const userId = get().user?.id;
+        if (userId) {
+          sessionStorage.removeItem(`login_logged_${userId}`);
+        }
+        
+        // Sign out from Supabase
         await supabase.auth.signOut();
-        set({ user: null, loading: false });
+        
+        // Clear user and reset initialized flag
+        set({ user: null, loading: false, initialized: false });
+        
+        // NUCLEAR: Clear localStorage immediately
+        localStorage.removeItem('auth-storage');
+        
+        // Mark that we just logged out (after clearing storage)
+        sessionStorage.setItem('just_logged_out', 'true');
+        
+        // Force reload to ensure clean state
+        window.location.href = '/login';
       },
     }),
     {
@@ -163,6 +189,30 @@ export const useAuthStore = create<AuthStore>()(
         user: state.user,
         // Don't persist loading/initialized
       }),
+      // CHECK FLAG WHEN REHYDRATING FROM STORAGE
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          // Check if user just logged out
+          const justLoggedOut = sessionStorage.getItem('just_logged_out');
+          
+          if (justLoggedOut) {
+            console.log('🔴 Just logged out - clearing stored auth state');
+            sessionStorage.removeItem('just_logged_out');
+            
+            // Clear the rehydrated state
+            if (state) {
+              state.user = null;
+              state.loading = true; // Keep loading true until initializeAuth runs
+              state.initialized = false;
+            }
+          } else if (state && state.user) {
+            // Even if we have persisted data, set loading=true until we verify with Supabase
+            console.log('⏳ Found persisted auth data, verifying with Supabase...');
+            state.loading = true;
+            state.user = null; // Don't trust persisted data until verified
+          }
+        };
+      },
     }
   )
 );

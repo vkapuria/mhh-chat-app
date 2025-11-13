@@ -22,24 +22,35 @@ export default function LoginPage() {
   const [role, setRole] = useState<'customer' | 'expert'>('customer');
   const [showPwd, setShowPwd] = useState(false);
   const [showHelper, setShowHelper] = useState(false);
-    
+  const [redirecting, setRedirecting] = useState(false);
+  
   // Add this:
   const { user: currentUser } = useAuthStore();
-    
+  
   useEffect(() => {
-    // Small delay to avoid redirect loop after logout
-    const timer = setTimeout(() => {
-      if (currentUser) {
+    // Don't redirect if we just logged out
+    const justLoggedOut = sessionStorage.getItem('just_logged_out');
+    
+    if (justLoggedOut) {
+      sessionStorage.removeItem('just_logged_out');
+      return;
+    }
+
+    // Redirect if already logged in
+    if (currentUser && !redirecting) {
+      setRedirecting(true);
+      
+      const timer = setTimeout(() => {
         if (currentUser.user_type === 'admin') {
           router.push('/admin');
         } else {
           router.push('/dashboard');
         }
-      }
-    }, 100); // 100ms delay
+      }, 150);
 
-    return () => clearTimeout(timer);
-  }, [currentUser, router]);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, router, redirecting]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

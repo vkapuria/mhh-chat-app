@@ -18,10 +18,12 @@ export function useActivityTracker() {
   const lastLoggedPath = useRef<string | null>(null);
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const sessionStart = useRef<Date>(new Date());
+  const isCleaningUp = useRef(false); // ADD THIS LINE
 
   // Log activity to database
   const logActivity = async (action: string, pagePath?: string) => {
-    if (!user) return;
+    if (!user || isCleaningUp.current) return; // MODIFY THIS LINE
+
 
     try {
       await supabase.from('activity_log').insert({
@@ -112,6 +114,8 @@ export function useActivityTracker() {
     if (!user) return;
 
     const handleBeforeUnload = () => {
+      isCleaningUp.current = true; // ADD THIS
+      
       // Use sendBeacon for reliable logout tracking
       const sessionDuration = Math.floor((Date.now() - sessionStart.current.getTime()) / 1000);
       
@@ -147,12 +151,19 @@ export function useActivityTracker() {
     };
   }, [user]);
 
-  // Log login on mount (only once when user is first set)
+  // Log login on mount (only once per session)
   useEffect(() => {
-    if (user) {
+    if (!user) return;
+
+    // Check if we already logged this session
+    const sessionKey = `login_logged_${user.id}`;
+    const alreadyLogged = sessionStorage.getItem(sessionKey);
+
+    if (!alreadyLogged) {
       console.log('🔓 Logging user login');
       logActivity('login');
-      sessionStart.current = new Date(); // Reset session start
+      sessionStorage.setItem(sessionKey, 'true');
+      sessionStart.current = new Date();
     }
   }, [user?.id]); // Only run when user ID changes
 
