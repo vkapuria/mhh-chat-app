@@ -16,6 +16,11 @@ export function useActivityTracker() {
   const pathname = usePathname();
   const { user } = useAuthStore();
   const lastLoggedPath = useRef<string | null>(null);
+
+  // Don't track admin users
+  if (user?.user_type === 'admin') {
+    return null;
+  }
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const sessionStart = useRef<Date>(new Date());
   const isCleaningUp = useRef(false); // ADD THIS LINE
@@ -55,6 +60,7 @@ export function useActivityTracker() {
             user_email: user.email,
             user_name: user.name,
             user_type: user.user_type,
+            avatar_url: user.user_metadata?.avatar_url || null,
             status,
             last_seen: new Date().toISOString(),
             current_page: currentPage || pathname,

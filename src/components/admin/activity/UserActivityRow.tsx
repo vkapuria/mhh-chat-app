@@ -1,12 +1,14 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import Image from 'next/image';
 
 interface UserActivityRowProps {
   user_id: string;
   user_email: string;
   user_name: string;
   user_type: string;
+  avatar_url?: string;
   status: 'online' | 'away' | 'offline';
   last_seen: string;
   current_page?: string;
@@ -17,6 +19,7 @@ export function UserActivityRow({
   user_email,
   user_name,
   user_type,
+  avatar_url,
   status,
   last_seen,
   current_page,
@@ -41,8 +44,24 @@ export function UserActivityRow({
   return (
     <div className="flex items-center justify-between p-4 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
       <div className="flex items-center gap-4 flex-1">
-        {/* Status Indicator */}
-        <div className={`w-3 h-3 rounded-full ${statusColors[status]}`} />
+        {/* Avatar with Status Indicator */}
+        <div className="relative">
+          {avatar_url ? (
+            <img 
+              src={avatar_url} 
+              alt={user_name}
+              className="w-10 h-10 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center">
+              <span className="text-slate-600 font-semibold text-sm">
+                {(user_name || user_email).charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
+          {/* Status dot on avatar */}
+          <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-white ${statusColors[status]}`} />
+        </div>
 
         {/* User Info */}
         <div className="flex-1">

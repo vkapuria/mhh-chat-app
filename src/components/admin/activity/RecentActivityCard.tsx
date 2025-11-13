@@ -19,7 +19,7 @@ interface Activity {
 export function RecentActivityCard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'login' | 'page_view'>('all');
+  const [filter, setFilter] = useState<'all' | 'login' | 'page_view' | 'heartbeat'>('all');
 
   useEffect(() => {
     fetchRecentActivity();
@@ -53,7 +53,10 @@ export function RecentActivityCard() {
   };
 
   const filteredActivities = activities.filter((activity) => {
-    if (filter === 'all') return true;
+    if (filter === 'all') {
+      // Exclude heartbeats from "All" - too noisy
+      return activity.action !== 'heartbeat';
+    }
     return activity.action === filter;
   });
 
@@ -111,6 +114,16 @@ export function RecentActivityCard() {
             }`}
           >
             Page Views
+          </button>
+          <button
+            onClick={() => setFilter('heartbeat')}
+            className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+              filter === 'heartbeat'
+                ? 'bg-blue-600 text-white'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            💓 Heartbeats
           </button>
         </div>
       </div>
