@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { UsersIcon, ArrowRightOnRectangleIcon } from '@heroicons/react/24/outline';
+import { supabase } from '@/lib/supabase';
 
 interface Stats {
   todayLogins: number;
@@ -15,13 +16,24 @@ export function ActivityStats() {
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 30000); // Refresh every 30s
+    const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/activity?type=stats');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/activity?type=stats', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
       const data = await response.json();
       if (data.success) {
         setStats(data.stats);
@@ -35,7 +47,6 @@ export function ActivityStats() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {/* Currently Online */}
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -54,7 +65,6 @@ export function ActivityStats() {
         </div>
       </Card>
 
-      {/* Today's Logins */}
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>

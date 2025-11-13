@@ -4,16 +4,27 @@ import { supabaseServer } from '@/lib/supabase-server';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type'); // 'online', 'recent', 'stats'
+    const type = searchParams.get('type');
 
-    // Verify admin
-    const { data: { user } } = await supabaseServer.auth.getUser();
-    if (!user || user.user_metadata?.user_type !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    // Get session from Authorization header
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
+    }
+
+    // Verify it's an admin by checking the JWT
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    if (user.user_metadata?.user_type !== 'admin') {
+      return NextResponse.json({ error: 'Admin only' }, { status: 403 });
     }
 
     if (type === 'online') {
-      // Get currently online users
       const { data: onlineUsers, error } = await supabaseServer
         .from('user_presence')
         .select('*')
@@ -21,12 +32,10 @@ export async function GET(request: NextRequest) {
         .order('last_seen', { ascending: false });
 
       if (error) throw error;
-
       return NextResponse.json({ success: true, users: onlineUsers });
     }
 
     if (type === 'recent') {
-      // Get recent activity (last 24 hours)
       const yesterday = new Date();
       yesterday.setHours(yesterday.getHours() - 24);
 
@@ -38,29 +47,23 @@ export async function GET(request: NextRequest) {
         .limit(100);
 
       if (error) throw error;
-
       return NextResponse.json({ success: true, activity: recentActivity });
     }
 
     if (type === 'stats') {
-      // Get activity stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const { data: todayLogins, error: loginsError } = await supabaseServer
+      const { count: todayLogins } = await supabaseServer
         .from('activity_log')
-        .select('user_id', { count: 'exact', head: true })
+        .select('*', { count: 'exact', head: true })
         .eq('action', 'login')
         .gte('created_at', today.toISOString());
 
-      const { data: onlineNow, error: onlineError } = await supabaseServer
+      const { count: onlineNow } = await supabaseServer
         .from('user_presence')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'online');
-
-      if (loginsError || onlineError) {
-        throw loginsError || onlineError;
-      }
 
       return NextResponse.json({
         success: true,
@@ -71,27 +74,24 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 });
+    return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
   } catch (error) {
     console.error('Activity API error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-// Handle logout tracking from sendBeacon
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { user_id, action, session_duration } = body;
 
     if (action === 'logout' && user_id) {
-      // Mark user as offline
       await supabaseServer
         .from('user_presence')
         .update({ status: 'offline', last_seen: new Date().toISOString() })
         .eq('user_id', user_id);
 
-      // Log logout activity
       await supabaseServer.from('activity_log').insert({
         user_id,
         action: 'logout',

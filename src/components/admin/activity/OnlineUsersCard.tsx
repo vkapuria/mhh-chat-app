@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { UserActivityRow } from './UserActivityRow';
+import { supabase } from '@/lib/supabase';
 
 interface OnlineUser {
   id: string;
@@ -22,16 +23,29 @@ export function OnlineUsersCard() {
 
   useEffect(() => {
     fetchOnlineUsers();
-    const interval = setInterval(fetchOnlineUsers, 10000); // Refresh every 10s
+    const interval = setInterval(fetchOnlineUsers, 10000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchOnlineUsers = async () => {
     try {
-      const response = await fetch('/api/admin/activity?type=online');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/activity?type=online', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
       const data = await response.json();
       if (data.success) {
         setUsers(data.users);
+      } else {
+        console.error('Failed to fetch online users:', data.error);
       }
     } catch (error) {
       console.error('Failed to fetch online users:', error);

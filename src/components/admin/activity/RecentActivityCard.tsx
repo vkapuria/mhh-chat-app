@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
+import { supabase } from '@/lib/supabase';
 
 interface Activity {
   id: string;
@@ -22,13 +23,24 @@ export function RecentActivityCard() {
 
   useEffect(() => {
     fetchRecentActivity();
-    const interval = setInterval(fetchRecentActivity, 30000); // Refresh every 30s
+    const interval = setInterval(fetchRecentActivity, 30000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchRecentActivity = async () => {
     try {
-      const response = await fetch('/api/admin/activity?type=recent');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.error('No session found');
+        return;
+      }
+
+      const response = await fetch('/api/admin/activity?type=recent', {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
       const data = await response.json();
       if (data.success) {
         setActivities(data.activity);
@@ -47,31 +59,21 @@ export function RecentActivityCard() {
 
   const getActionIcon = (action: string) => {
     switch (action) {
-      case 'login':
-        return '🔓';
-      case 'logout':
-        return '🔒';
-      case 'page_view':
-        return '📄';
-      case 'heartbeat':
-        return '💓';
-      default:
-        return '📊';
+      case 'login': return '🔓';
+      case 'logout': return '🔒';
+      case 'page_view': return '📄';
+      case 'heartbeat': return '💓';
+      default: return '📊';
     }
   };
 
   const getActionColor = (action: string) => {
     switch (action) {
-      case 'login':
-        return 'text-green-600';
-      case 'logout':
-        return 'text-red-600';
-      case 'page_view':
-        return 'text-blue-600';
-      case 'heartbeat':
-        return 'text-slate-400';
-      default:
-        return 'text-slate-600';
+      case 'login': return 'text-green-600';
+      case 'logout': return 'text-red-600';
+      case 'page_view': return 'text-blue-600';
+      case 'heartbeat': return 'text-slate-400';
+      default: return 'text-slate-600';
     }
   };
 
