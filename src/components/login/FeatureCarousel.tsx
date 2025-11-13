@@ -7,6 +7,18 @@ import { ChatMockup } from './ChatMockup';
 import { SupportMockup } from './SupportMockup';
 import { ShoppingBagIcon, ChatBubbleLeftRightIcon, LifebuoyIcon } from '@heroicons/react/24/outline';
 import type { ComponentType } from 'react';
+import dynamic from 'next/dynamic';
+
+// Lottie wrapper (SSR-safe)
+const LottieIcon = dynamic(
+  () => import('@/components/ui/LottieIcon').then((mod) => mod.LottieIcon),
+  { ssr: false }
+);
+
+// Load Lottie animations from public folder
+const shoppingCartAnimation = require('@/../public/icons/animated-icons/track-order.json');
+const chatAnimation = require('@/../public/icons/animated-icons/live-chat.json');
+const supportAnimation = require('@/../public/icons/animated-icons/email-support.json'); // Using messages as fallback
 
 type Feature = {
   id: 'orders' | 'chat' | 'support';
@@ -14,6 +26,7 @@ type Feature = {
   description: string;   // short blurb shown in header
   caption: string;       // ultra-concise line under mockup
   icon: ComponentType<any>;
+  lottieAnimation?: any; // Add Lottie animation data
   component: ComponentType<any>;
 };
 
@@ -22,8 +35,9 @@ const features: Feature[] = [
     id: 'orders',
     title: 'Track Your Orders',
     description: 'View your complete order history in one place',
-    caption: 'Track order every step—at a glance.',
+    caption: 'Track order @ every step.',
     icon: ShoppingBagIcon,
+    lottieAnimation: shoppingCartAnimation,
     component: OrdersMockup,
   },
   {
@@ -32,6 +46,7 @@ const features: Feature[] = [
     description: 'Direct messaging in-app with email notifications',
     caption: 'DM your expert instantly.',
     icon: ChatBubbleLeftRightIcon,
+    lottieAnimation: chatAnimation,
     component: ChatMockup,
   },
   {
@@ -40,6 +55,7 @@ const features: Feature[] = [
     description: 'Priority ticketing and instant help when you need it',
     caption: 'Priority help, fast resolution.',
     icon: LifebuoyIcon,
+    lottieAnimation: supportAnimation,
     component: SupportMockup,
   },
 ];
@@ -107,7 +123,7 @@ export function FeatureCarousel() {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex flex-col"
+      className="w-full h-full flex flex-col px-4 lg:px-0"
       onMouseEnter={clearTimer}
       onMouseLeave={startTimer}
       onTouchStart={clearTimer}
@@ -115,19 +131,65 @@ export function FeatureCarousel() {
       aria-roledescription="carousel"
       aria-live="polite"
     >
-      {/* Title + blurb */}
-      <div className="px-2 sm:px-4 mb-0.5">
-        <div className="flex items-center gap-2">
-          <Icon className="w-5 h-5 text-slate-500" />
-          <div>
-            <h3 className="text-slate-900 font-semibold">{activeFeature.title}</h3>
-            <p className="text-sm text-slate-600">{activeFeature.description}</p>
+      {/* Title + Description */}
+      <div className="px-4 mb-2">
+        <div className="flex items-center gap-1 max-w-2xl mx-auto">
+          {/* LEFT: Icon (30%) */}
+          <div className="w-[30%] flex-shrink-0 flex justify-center">
+            {activeFeature.lottieAnimation ? (
+              <LottieIcon
+                animationData={activeFeature.lottieAnimation}
+                className="w-24 h-24"
+                loop={true}
+                autoplay={true}
+                hover={false}
+              />
+            ) : (
+              <Icon className="w-20 h-20 text-slate-500" />
+            )}
+          </div>
+          
+          {/* RIGHT: Text (70%) */}
+          <div className="w-[70%] flex-shrink-0 text-left">
+            {/* Title */}
+            <h3 className="text-xl font-bold text-slate-900 mb-1 leading-tight">
+              {activeFeature.title}
+            </h3>
+            
+            {/* Description */}
+            <p className="text-sm text-slate-600 leading-relaxed">
+              {activeFeature.description}
+            </p>
           </div>
         </div>
       </div>
 
+      
+
+      {/* Dots (scroll controller) ABOVE mockup */}
+      <div className="flex items-center justify-center gap-2 mb-1">
+        {features.map((feature, index) => (
+          <button
+            key={feature.id}
+            onClick={() => handleDotClick(index)}
+            className="relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm"
+            aria-label={`Go to ${feature.title}`}
+            aria-current={index === activeIndex ? 'true' : 'false'}
+          >
+            <div
+              className={`h-2 rounded-full transition-all duration-300 ${
+                index === activeIndex ? 'bg-blue-600 w-8' : 'bg-slate-300 w-2 group-hover:bg-slate-400'
+              }`}
+            />
+            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              {feature.title}
+            </div>
+          </button>
+        ))}
+      </div>
+
       {/* Mockup area */}
-      <div className="relative overflow-hidden mt-1 h-[600px]">
+      <div className="relative overflow-hidden h-[550px]">
         <AnimatePresence mode="wait" initial={false} custom={direction}>
           <motion.div
             key={activeIndex}
@@ -151,38 +213,11 @@ export function FeatureCarousel() {
         </AnimatePresence>
       </div>
 
-      {/* Concise caption under mockup */}
-      <p className="mt-1 px-4 text-center text-[14px] text-slate-600 leading-tight">
-        {activeFeature.caption}
-      </p>
-
-      {/* Dots */}
-      <div className="flex items-center justify-center gap-2 mt-2 pb-1">
-        {features.map((feature, index) => (
-          <button
-            key={feature.id}
-            onClick={() => handleDotClick(index)}
-            className="relative group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-sm"
-            aria-label={`Go to ${feature.title}`}
-            aria-current={index === activeIndex ? 'true' : 'false'}
-          >
-            <div
-              className={`h-2 rounded-full transition-all duration-300 ${
-                index === activeIndex ? 'bg-blue-600 w-8' : 'bg-slate-300 w-2 group-hover:bg-slate-400'
-              }`}
-            />
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 px-2 py-1 bg-slate-900 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-              {feature.title}
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* Compact trust bullets */}
-      <ul className="mt-0.5 mb-1 flex items-center justify-center gap-3 text-[14px] text-slate-600">
+      {/* Trust bullets at BOTTOM */}
+      <ul className="mt-1 mb-1 flex items-center justify-center gap-3 text-[14px] text-slate-600">
         <li className="flex items-center gap-1.5"><span aria-hidden>💬</span> Real-time chat</li>
-        <li className="flex items-center gap-1.5"><span aria-hidden>⏱️</span> On-time Delivery</li>
-        <li className="flex items-center gap-1.5"><span aria-hidden>💯</span> 100% Satisfaction Guarantee policy</li>
+        <li className="flex items-center gap-1.5"><span aria-hidden>⏱️</span> On-time delivery</li>
+        <li className="flex items-center gap-1.5"><span aria-hidden>💯</span> Satisfaction policy</li>
       </ul>
     </div>
   );
