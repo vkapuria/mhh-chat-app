@@ -10,6 +10,7 @@ import { Bars3Icon } from '@heroicons/react/24/outline';
 import Image from 'next/image';
 import { useTicketRealtime } from '@/hooks/useTicketRealtime';
 import { useMessagesRealtime } from '@/hooks/useMessagesRealtime';
+import { useActivityTracker } from '@/hooks/useActivityTracker';
 
 export default function PortalLayout({
   children,
@@ -21,6 +22,10 @@ export default function PortalLayout({
   
   // Get user from global store (no API call!)
   const { user, loading } = useAuthStore();
+
+  // Track user activity
+  useActivityTracker(); // ← ADD THIS LINE
+  
   
   // Setup realtime subscriptions
   useTicketRealtime(user?.id || null);

@@ -27,14 +27,18 @@ export default function LoginPage() {
   const { user: currentUser } = useAuthStore();
     
   useEffect(() => {
-    // If already logged in, redirect immediately
-    if (currentUser) {
-      if (currentUser.user_type === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
+    // Small delay to avoid redirect loop after logout
+    const timer = setTimeout(() => {
+      if (currentUser) {
+        if (currentUser.user_type === 'admin') {
+          router.push('/admin');
+        } else {
+          router.push('/dashboard');
+        }
       }
-    }
+    }, 100); // 100ms delay
+
+    return () => clearTimeout(timer);
   }, [currentUser, router]);
 
   const handleLogin = async (e: React.FormEvent) => {

@@ -4,12 +4,15 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { UsersIcon, HomeIcon, LifebuoyIcon, ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { AdminProfileDropdown } from '@/components/admin/AdminProfileDropdown';
+import { ChartBarIcon } from '@heroicons/react/24/outline'; // Add this import at top
+
 
 export function AdminNav() {
   const pathname = usePathname();
 
   const navItems = [
     { name: 'Dashboard', href: '/admin', icon: HomeIcon },
+    { name: 'Activity', href: '/admin/activity', icon: ChartBarIcon },
     { name: 'Users', href: '/admin/users', icon: UsersIcon },
     { name: 'Monitor Chats', href: '/admin/chats', icon: ChatBubbleLeftRightIcon },
     { name: 'Support Tickets', href: '/admin/support', icon: LifebuoyIcon },
