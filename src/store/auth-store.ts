@@ -77,15 +77,17 @@ export const useAuthStore = create<AuthStore>()(
         console.log('🔵 Initializing auth store...');
         set({ loading: true, initialized: true });
 
-        try {
-          // Get current session
-          const { data: { user: authUser }, error } = await supabase.auth.getUser();
+         try {
+          // Get current session - use getSession() instead of getUser()
+          const { data: { session }, error } = await supabase.auth.getSession();
 
           if (error) {
             console.error('🔴 Auth initialization error:', error);
             set({ user: null, loading: false });
             return;
           }
+
+          const authUser = session?.user;
 
           if (authUser) {
             const mappedUser = mapSupabaseUser(authUser);

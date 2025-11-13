@@ -7,6 +7,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence, LayoutGroup } from 'framer-motion';
 import { FeatureCarousel } from '@/components/login/FeatureCarousel';
+import { useAuthStore } from '@/store/auth-store'; // ← ADD THIS
+
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +23,19 @@ export default function LoginPage() {
   const [showPwd, setShowPwd] = useState(false);
   const [showHelper, setShowHelper] = useState(false);
     
+  // Add this:
+  const { user: currentUser } = useAuthStore();
+    
+  useEffect(() => {
+    // If already logged in, redirect immediately
+    if (currentUser) {
+      if (currentUser.user_type === 'admin') {
+        router.push('/admin');
+      } else {
+        router.push('/dashboard');
+      }
+    }
+  }, [currentUser, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
