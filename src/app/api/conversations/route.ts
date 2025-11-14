@@ -116,23 +116,30 @@ ordersQuery = ordersQuery
     });
 
     // Build expert avatar map (by expert_id in metadata)
-    const expertAvatarMap = new Map<string, string>();
-    allAuthUsers?.users.forEach((authUser: any) => {
-      const expertId = authUser.user_metadata?.expert_id;
-      if (expertId && expertIds.includes(expertId) && authUser.user_metadata?.avatar_url) {
-        expertAvatarMap.set(expertId, authUser.user_metadata.avatar_url);
-      }
-    });
+const expertAvatarMap = new Map<string, string>();
+const expertEmailMap = new Map<string, string>();  // 🆕 ADD THIS
+allAuthUsers?.users.forEach((authUser: any) => {
+  const expertId = authUser.user_metadata?.expert_id;
+  if (expertId && expertIds.includes(expertId)) {
+    if (authUser.user_metadata?.avatar_url) {
+      expertAvatarMap.set(expertId, authUser.user_metadata.avatar_url);
+    }
+    if (authUser.email) {  // 🆕 ADD THIS
+      expertEmailMap.set(expertId, authUser.email);
+    }
+  }
+});
 
-    console.log('🎨 Avatar maps:', {
-      totalAuthUsers: allAuthUsers?.users?.length || 0,
-      customers: customerAvatarMap.size,
-      experts: expertAvatarMap.size,
-      customerEmails: customerEmails.length,
-      expertIds: expertIds.length,
-      sampleCustomerEmails: customerEmails.slice(0, 3),
-      sampleExpertIds: expertIds.slice(0, 3),
-    });
+console.log('🎨 Avatar maps:', {
+  totalAuthUsers: allAuthUsers?.users?.length || 0,
+  customers: customerAvatarMap.size,
+  experts: expertAvatarMap.size,
+  expertEmails: expertEmailMap.size,  // 🆕 ADD THIS
+  customerEmails: customerEmails.length,
+  expertIds: expertIds.length,
+  sampleCustomerEmails: customerEmails.slice(0, 3),
+  sampleExpertIds: expertIds.slice(0, 3),
+});
     // Create authenticated client for RLS
     const supabaseAuth = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -279,7 +286,7 @@ if (isChatClosed || !isOrderActive) {
     customer_email: order.customer_email,
     expert_name: order.expert_name,
     expert_display_name: order.expert_display_name,
-    expert_email: null,
+    expert_email: expertEmailMap.get(order.expert_id) || null,  // 🆕 FIX THIS LINE
     expert_user_id: expertUserIdMap.get(order.id) || null,
     customer_user_id: customerUserIdMap.get(order.id) || null,
     customer_avatar: customerAvatar,  // ← ADD THIS
