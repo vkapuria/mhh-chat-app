@@ -103,8 +103,8 @@ export function useActivityTracker() {
     // Set up interval
     heartbeatInterval.current = setInterval(() => {
       console.log('💓 Sending heartbeat');
-      logActivity('heartbeat');
-      updatePresence('online');
+      // ❌ REMOVED: logActivity('heartbeat') - don't spam activity_log table
+      updatePresence('online'); // ✅ Only update presence, no activity log
     }, 30000); // 30 seconds
 
     // Cleanup

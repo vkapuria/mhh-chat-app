@@ -5,6 +5,11 @@ import { Card } from '@/components/ui/card';
 import { formatDistanceToNow } from 'date-fns';
 import { fetchAdminActivity } from '@/lib/admin-activity-client';
 
+function getInitial(user: any): string {
+  const name = user.name || user.user_name || user.user_email || '?';
+  return name.charAt(0).toUpperCase();
+}
+
 interface Activity {
   id: string;
   user_id: string;
@@ -342,9 +347,9 @@ export function RecentActivityCard() {
                     <div className="bg-gradient-to-r from-slate-50 to-white p-4 border-b border-slate-200 flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center ring-2 ring-slate-100">
-                          <span className="text-slate-700 font-bold text-sm">
-                            {user.name.charAt(0).toUpperCase()}
-                          </span>
+                        <span className="text-slate-700 font-bold text-sm">
+                          {getInitial(user)}
+                        </span>
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900 text-sm">{user.name}</p>
