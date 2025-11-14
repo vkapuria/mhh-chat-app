@@ -25,7 +25,7 @@ interface NotificationCooldownStore {
   clearOldCooldowns: () => void; // Clean up old entries
 }
 
-const COOLDOWN_MINUTES = 60; // 1 hour
+const COOLDOWN_MINUTES = 15; // 15 min
 
 export const useNotificationCooldownStore = create<NotificationCooldownStore>()(
   persist(
