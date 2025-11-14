@@ -91,39 +91,62 @@ export function UserProfileDropdown({ userType = 'customer' }: UserProfileDropdo
       toast.error('Please enter a display name');
       return;
     }
-
+  
     // Validate display name (2-30 chars, letters only)
     if (displayName.length < 2 || displayName.length > 30) {
       toast.error('Display name must be 2-30 characters');
       return;
     }
-
+  
     if (!/^[a-zA-Z\s]+$/.test(displayName)) {
       toast.error('Display name can only contain letters');
       return;
     }
-
+  
     setSaving(true);
-
+  
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
+      // 🆕 Get session token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Session expired. Please log in again.');
+        setSaving(false);
+        return;
+      }
+  
+      // 🆕 Call your API endpoint instead of direct auth update
+      const response = await fetch('/api/profile', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
           display_name: displayName.trim(),
           avatar_url: avatarUrl,
-        },
+        }),
       });
-
-      if (error) throw error;
-
+  
+      const result = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update profile');
+      }
+  
+      // 🆕 Force session refresh BEFORE reload
+      await supabase.auth.refreshSession();
+  
       toast.success('Profile updated successfully!');
       setIsOpen(false);
       
-      // Reload page to reflect changes
-      window.location.reload();
+      // 🆕 Small delay to ensure session is refreshed
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+  
     } catch (error: any) {
       console.error('Error updating profile:', error);
       toast.error(error.message || 'Failed to update profile');
-    } finally {
       setSaving(false);
     }
   };
