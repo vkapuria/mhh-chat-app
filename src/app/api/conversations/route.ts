@@ -130,6 +130,17 @@ allAuthUsers?.users.forEach((authUser: any) => {
   }
 });
 
+// 🆕 Build expert auth user ID map (expert_id -> auth user ID)
+const expertAuthUserIdMap = new Map<string, string>();
+allAuthUsers?.users.forEach((authUser: any) => {
+  const expertId = authUser.user_metadata?.expert_id;
+  if (expertId && expertIds.includes(expertId)) {
+    expertAuthUserIdMap.set(expertId, authUser.id); // Map expert_id to auth user ID
+  }
+});
+
+console.log('🆔 Expert auth ID map size:', expertAuthUserIdMap.size);
+
 console.log('🎨 Avatar maps:', {
   totalAuthUsers: allAuthUsers?.users?.length || 0,
   customers: customerAvatarMap.size,
@@ -287,7 +298,7 @@ if (isChatClosed || !isOrderActive) {
     expert_name: order.expert_name,
     expert_display_name: order.expert_display_name,
     expert_email: expertEmailMap.get(order.expert_id) || null,  // 🆕 FIX THIS LINE
-    expert_user_id: expertUserIdMap.get(order.id) || null,
+    expert_user_id: expertAuthUserIdMap.get(order.expert_id) || expertUserIdMap.get(order.id) || null,
     customer_user_id: customerUserIdMap.get(order.id) || null,
     customer_avatar: customerAvatar,  // ← ADD THIS
     expert_avatar: expertAvatar,  // ← ADD THIS

@@ -300,6 +300,9 @@ export function ChatWindow({
           sender_display_name: user.user_metadata?.display_name || 'User',
           message_content: newMessage.trim(),
           send_notification: shouldNotify,
+          recipient_email: otherPartyEmail,  // ← ADD THIS
+          recipient_name: otherPartyName,    // ← ADD THIS
+          recipient_display_name: otherPartyDisplayName || otherPartyName,  // ← ADD THIS
         }),
       });
 

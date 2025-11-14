@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { getCachedUser } from '@/lib/cached-auth';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log('📦 Request body:', JSON.stringify(body, null, 2));
 
-    const { order_id, sender_type, sender_id, sender_name, sender_display_name, message_content, send_notification } = body;
+    const { order_id, sender_type, sender_id, sender_name, sender_display_name, message_content, send_notification, recipient_email, recipient_name, recipient_display_name } = body;
 
     // Get auth token from header
     const authHeader = request.headers.get('authorization');
@@ -202,7 +202,7 @@ export async function POST(request: NextRequest) {
         // Get expert email from auth (for Slack notification)
         let expertEmail = 'no-email';
         if (orderData.expert_id) {
-          const { data: expertAuthData } = await supabase.auth.admin.getUserById(orderData.expert_id);
+          const { data: expertAuthData } = await supabaseAdmin.auth.admin.getUserById(orderData.expert_id);
           expertEmail = expertAuthData?.user?.email || 'no-email';
         }
 
@@ -243,36 +243,16 @@ export async function POST(request: NextRequest) {
       try {
         console.log('📧 Sending email notification...');
         
-        // Determine recipient based on sender type
-        const isCustomer = sender_type === 'customer';
-        
-        // Get recipient details from order
-        let recipientEmail: string | null = null;
-        let recipientName: string;
-        let recipientDisplayName: string;
+        // Use recipient details passed from frontend (same as batch notification)
+        const recipientEmailToUse = recipient_email;
+        const recipientNameToUse = recipient_display_name || recipient_name || 'User';
 
-        if (isCustomer) {
-          // Customer sending to Expert
-          // Need to get expert's email from auth users
-          if (orderData.expert_id) {
-            const { data: expertAuthData } = await supabase.auth.admin.getUserById(orderData.expert_id);
-            recipientEmail = expertAuthData?.user?.email || null;
-          }
-          recipientName = orderData.expert_name;
-          recipientDisplayName = orderData.expert_display_name || orderData.expert_name;
-        } else {
-          // Expert sending to Customer
-          recipientEmail = orderData.customer_email;
-          recipientName = orderData.customer_name;
-          recipientDisplayName = orderData.customer_display_name || orderData.customer_name;
-        }
-
-        if (!recipientEmail) {
+        if (!recipientEmailToUse) {
           console.warn('⚠️ No recipient email found');
           emailError = 'No recipient email';
         } else {
           const emailHtml = generateNewMessageEmail({
-            recipientName: recipientDisplayName, // Use display name for privacy
+            recipientName: recipientNameToUse, // Use display name for privacy
             senderName: sender_display_name, // Use display name for privacy
             senderType: sender_type,
             orderId: orderData.task_code || orderData.id,
@@ -290,7 +270,7 @@ export async function POST(request: NextRequest) {
 
           const emailResult = await resend.emails.send({
             from: 'MyHomeworkHelp Chat <chat@myhomeworkhelp.com>',
-            to: recipientEmail,
+            to: recipientEmailToUse,
             subject: `💬 New message from ${sender_display_name}`,
             html: emailHtml,
           });
