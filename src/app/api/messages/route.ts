@@ -4,6 +4,7 @@ import { getCachedUser } from '@/lib/cached-auth';
 import { createClient } from '@supabase/supabase-js';
 import { Resend } from 'resend';
 import { generateNewMessageEmail } from '@/lib/email';
+import { notifyChatInitiated } from '@/lib/slack'; // ← ADD THIS
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -134,11 +135,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if order exists and get details
+    // Check if order exists and get details (INCLUDING chat_initiated status)
     console.log('🔍 Checking order:', order_id);
     const { data: orderData, error: orderError } = await supabaseAuth
       .from('orders')
-      .select('id, title, task_code, customer_email, customer_name, customer_display_name, expert_id, expert_name, expert_display_name')
+      .select('id, title, task_code, customer_email, customer_name, customer_display_name, expert_id, expert_name, expert_display_name, chat_initiated')
       .eq('id', order_id)
       .single();
 
@@ -151,6 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('📋 Order details:', orderData);
+    console.log('💬 Chat initiated?', orderData.chat_initiated);
 
     // Prepare message data
     const messageData = {
@@ -191,6 +193,47 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('✅ Message inserted successfully:', data?.id);
+
+    // ✨ NEW: Check if this is the FIRST message (chat initiation)
+    if (!orderData.chat_initiated) {
+      console.log('🎉 FIRST MESSAGE! Notifying Slack and marking chat as initiated...');
+      
+      try {
+        // Get expert email from auth (for Slack notification)
+        let expertEmail = 'no-email';
+        if (orderData.expert_id) {
+          const { data: expertAuthData } = await supabase.auth.admin.getUserById(orderData.expert_id);
+          expertEmail = expertAuthData?.user?.email || 'no-email';
+        }
+
+        // Send Slack notification
+        await notifyChatInitiated({
+          orderId: orderData.task_code || orderData.id,
+          orderTitle: orderData.title || 'Untitled Order',
+          customerName: orderData.customer_display_name || orderData.customer_name,
+          customerEmail: orderData.customer_email,
+          expertName: orderData.expert_display_name || orderData.expert_name,
+          expertEmail: expertEmail,
+          initiatedBy: sender_type as 'customer' | 'expert',
+          timestamp: new Date().toISOString(),
+        });
+
+        // Mark order as chat_initiated using SERVICE ROLE (bypasses RLS)
+        await supabase
+          .from('orders')
+          .update({
+            chat_initiated: true,
+            chat_initiated_at: new Date().toISOString(),
+            chat_initiated_by: sender_type,
+          })
+          .eq('id', order_id);
+
+        console.log('✅ Chat initiation notification sent and order updated');
+      } catch (slackError) {
+        console.error('❌ Error with chat initiation notification:', slackError);
+        // Don't fail the message send if Slack fails
+      }
+    }
 
     // Send email notification if requested
     let emailSent = false;

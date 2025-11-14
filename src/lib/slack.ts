@@ -323,4 +323,113 @@ export async function notifyOnboardingCompleted({
   }
 }
 
+// Notify when chat is initiated for an order
+export async function notifyChatInitiated({
+  orderId,
+  orderTitle,
+  customerName,
+  customerEmail,
+  expertName,
+  expertEmail,
+  initiatedBy,
+  timestamp,
+}: {
+  orderId: string;
+  orderTitle: string;
+  customerName: string;
+  customerEmail: string;
+  expertName: string;
+  expertEmail: string;
+  initiatedBy: 'customer' | 'expert';
+  timestamp: string;
+}) {
+  try {
+    const channelId = process.env.SLACK_CHAT_CHANNEL_ID;
+    
+    if (!channelId) {
+      console.error('SLACK_CHAT_CHANNEL_ID not configured');
+      return false;
+    }
+
+    const initiatorEmoji = initiatedBy === 'expert' ? '👨‍💼' : '👤';
+    const initiatorLabel = initiatedBy === 'expert' ? 'Expert' : 'Customer';
+    const chatUrl = `${process.env.NEXT_PUBLIC_APP_URL}/messages`;
+    
+    const formattedTime = new Date(timestamp).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
+    await slackClient.chat.postMessage({
+      channel: channelId,
+      text: `💬 Chat started for ${orderId}`,
+      blocks: [
+        {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: `💬 Chat Initiated - ${orderId}`,
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
+          fields: [
+            {
+              type: 'mrkdwn',
+              text: `*Customer:*\n👤 ${customerName}\n${customerEmail}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Expert:*\n👨‍💼 ${expertName}\n${expertEmail}`,
+            },
+          ],
+        },
+        {
+          type: 'section',
+          text: {
+            type: 'mrkdwn',
+            text: `*Order:*\n${orderTitle}`,
+          },
+        },
+        {
+          type: 'section',
+          fields: [
+            {
+              type: 'mrkdwn',
+              text: `*Started:*\n${formattedTime} EST`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Initiated by:*\n${initiatorEmoji} ${initiatorLabel}`,
+            },
+          ],
+        },
+        {
+          type: 'actions',
+          elements: [
+            {
+              type: 'button',
+              text: {
+                type: 'plain_text',
+                text: '👁️ View in Portal',
+                emoji: true,
+              },
+              url: chatUrl,
+              style: 'primary',
+            },
+          ],
+        },
+      ],
+    });
+
+    console.log('✅ Chat initiation posted to Slack');
+    return true;
+  } catch (error) {
+    console.error('Error posting chat initiation to Slack:', error);
+    return false;
+  }
+}
+
 export { slackClient };
