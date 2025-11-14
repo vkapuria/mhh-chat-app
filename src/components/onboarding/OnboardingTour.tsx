@@ -14,30 +14,24 @@ export default function OnboardingTour({ userType }: OnboardingTourProps) {
   const { user } = useAuthStore();
   const [isDesktop, setIsDesktop] = useState(false);
 
-  // Check if desktop on mount and window resize
   useEffect(() => {
     const checkIfDesktop = () => {
-      // Match your md: breakpoint (992px)
       const desktop = window.innerWidth >= 992;
       setIsDesktop(desktop);
       console.log('📱 Screen size check:', window.innerWidth, 'px -', desktop ? 'DESKTOP' : 'MOBILE');
     };
 
-    // Check on mount
     checkIfDesktop();
-
-    // Check on resize
     window.addEventListener('resize', checkIfDesktop);
     return () => window.removeEventListener('resize', checkIfDesktop);
   }, []);
 
   useEffect(() => {
-    // Only run on desktop with authenticated user
     if (user?.id && isDesktop) {
       console.log('🎯 Desktop detected - checking onboarding status...');
       checkAndStartTour();
     } else if (user?.id && !isDesktop) {
-      console.log('📱 Mobile detected - skipping onboarding tour (will show on desktop)');
+      console.log('📱 Mobile detected - skipping onboarding tour');
     }
   }, [user?.id, userType, isDesktop]);
 
@@ -45,29 +39,28 @@ export default function OnboardingTour({ userType }: OnboardingTourProps) {
     if (!user?.id) return;
 
     try {
-      // Check onboarding status via API
-      const response = await fetch('/api/onboarding');
+      // Pass user ID in query
+      const response = await fetch(`/api/onboarding?userId=${user.id}`);
       const data = await response.json();
-
       console.log('📊 Onboarding status:', data);
 
       if (!data.completed) {
-        console.log('🚀 Starting desktop tour!');
+        console.log('🚀 Starting tour!');
         
-        // Create record if it doesn't exist
         if (!data.exists) {
           console.log('💾 Creating onboarding record...');
           await fetch('/api/onboarding', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'start' }),
+            body: JSON.stringify({ 
+              action: 'start',
+              userId: user.id,
+            }),
           });
         }
 
-        // Set steps based on user type
         const steps = userType === 'expert' ? expertTourSteps : customerTourSteps;
         
-        // Delay for DOM readiness
         setTimeout(() => {
           console.log('⏰ Starting tour now...');
           startTour(steps);
@@ -85,14 +78,21 @@ export default function OnboardingTour({ userType }: OnboardingTourProps) {
       const driverObj = driver({
         showProgress: true,
         steps: steps,
-        allowClose: false,  // ← ADD THIS: Can't close with X button
+        allowClose: false,
         onDestroyed: async () => {
           console.log('🏁 Tour completed');
-          // Mark as complete via API
+          if (!user?.id) return;
+          
           await fetch('/api/onboarding', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'complete' }),
+            body: JSON.stringify({ 
+              action: 'complete',
+              userId: user.id,
+              userName: (user as any).user_metadata?.display_name || user.email?.split('@')[0],
+              userEmail: user.email,
+              userType: (user as any).user_metadata?.user_type || userType,
+            }),
           });
         },
         popoverClass: 'driverjs-theme',
@@ -100,7 +100,7 @@ export default function OnboardingTour({ userType }: OnboardingTourProps) {
         prevBtnText: '← Back',
         doneBtnText: 'Finish! 🎉',
       });
-  
+
       driverObj.drive();
       console.log('✅ Tour started!');
     } catch (error) {
