@@ -11,6 +11,7 @@ import Image from 'next/image';
 import { useTicketRealtime } from '@/hooks/useTicketRealtime';
 import { useMessagesRealtime } from '@/hooks/useMessagesRealtime';
 import { useActivityTracker } from '@/hooks/useActivityTracker';
+import OnboardingTour from '@/components/onboarding/OnboardingTour';  // ← ADD THIS
 
 export default function PortalLayout({
   children,
@@ -24,8 +25,7 @@ export default function PortalLayout({
   const { user, loading } = useAuthStore();
 
   // Track user activity
-  useActivityTracker(); // ← ADD THIS LINE
-  
+  useActivityTracker();
   
   // Setup realtime subscriptions
   useTicketRealtime(user?.id || null);
@@ -61,6 +61,9 @@ export default function PortalLayout({
 
   return (
     <PresenceProvider>
+      {/* ADD ONBOARDING TOUR HERE */}
+      <OnboardingTour userType={user.user_type} />
+      
       <div className="flex h-screen bg-slate-50">
         {/* Desktop Sidebar */}
         <div className="hidden md:block">

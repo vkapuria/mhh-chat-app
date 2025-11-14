@@ -93,6 +93,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       icon: HomeIcon,
       show: true,
       description: 'Dashboard overview',
+      dataTour: 'dashboard',  // ← ADD THIS
     },
     {
       name: isCustomer ? 'My Orders' : 'My Tasks',
@@ -100,6 +101,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       icon: ShoppingBagIcon,
       show: true,
       description: isCustomer ? 'Track your orders' : 'View assigned tasks',
+      dataTour: isCustomer ? 'orders' : 'my-tasks',  // ← ADD THIS
     },
     {
       name: 'Messages',
@@ -107,6 +109,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       icon: ChatBubbleLeftRightIcon,
       show: true,
       description: 'Chat conversations',
+      dataTour: 'messages',  // ← ADD THIS
     },
     {
       name: 'My Earnings',
@@ -114,6 +117,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       icon: CurrencyDollarIcon,
       show: isExpert,
       description: 'Payment history',
+      dataTour: 'earnings',  // ← ADD THIS
     },
     {
       name: 'Support',
@@ -121,6 +125,7 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
       icon: LifeBuoy,
       show: true,
       description: 'Get help from us',
+      dataTour: 'support',  // ← ADD THIS
     },
     {
       name: 'FAQ',
@@ -179,6 +184,7 @@ const displayName = (user as any).user_metadata?.display_name || user.name;
         {/* User Profile - Left Aligned */}
         <div className="p-3 border-b border-slate-200">
           <motion.button
+            data-tour="edit-profile"  // ← ADD THIS
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
@@ -232,6 +238,7 @@ const displayName = (user as any).user_metadata?.display_name || user.name;
                 <Link
                   href={item.href}
                   onClick={onNavigate}
+                  data-tour={item.dataTour}  // ← ADD THIS
                   className={`
                     group relative flex flex-col gap-0 px-3 py-2.5 rounded-lg transition-all duration-200 overflow-hidden
                     ${
