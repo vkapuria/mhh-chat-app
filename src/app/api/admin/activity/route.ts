@@ -36,40 +36,188 @@ export async function GET(request: NextRequest) {
     }
 
     if (type === 'recent') {
-      const yesterday = new Date();
-      yesterday.setHours(yesterday.getHours() - 24);
+      const actionParam = searchParams.get('action'); // 'login' | 'page_view' | 'logout' | 'heartbeat' | null
+      const search = searchParams.get('search') || '';
+      const limitParam = searchParams.get('limit');
+      const offsetParam = searchParams.get('offset');
+    
+      const limit = Math.min(Number(limitParam) || 25, 100); // cap at 100 per page
+      const offset = Number(offsetParam) || 0;
+    
+      const startDateParam = searchParams.get('start_date');
+const endDateParam = searchParams.get('end_date');
 
-      const { data: recentActivity, error } = await supabaseServer
-        .from('activity_log')
-        .select('*')
-        .gte('created_at', yesterday.toISOString())
+// Default to last 24 hours if not specified
+const since = startDateParam 
+  ? new Date(startDateParam) 
+  : new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+let query = supabaseServer
+  .from('activity_log')
+  .select('*', { count: 'exact' })
+  .gte('created_at', since.toISOString());
+
+// Add end date filter if provided (for "yesterday" filter)
+if (endDateParam) {
+  query = query.lt('created_at', endDateParam);
+}
+    
+      // Filter by action if provided and not 'all'
+      if (actionParam && actionParam !== 'all') {
+        query = query.eq('action', actionParam);
+      }
+    
+      // Search by name or email (case-insensitive)
+      if (search.trim().length > 0) {
+        const term = search.trim();
+        query = query.or(
+          `user_email.ilike.%${term}%,user_name.ilike.%${term}%`
+        );
+      }
+    
+      const from = offset;
+      const to = offset + limit - 1;
+    
+      const { data: recentActivity, error, count } = await query
         .order('created_at', { ascending: false })
-        .limit(100);
-
+        .range(from, to);
+    
       if (error) throw error;
-      return NextResponse.json({ success: true, activity: recentActivity });
+    
+      return NextResponse.json({
+        success: true,
+        activity: recentActivity || [],
+        total: count || 0,
+      });
     }
 
     if (type === 'stats') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-
+      const todayISO = today.toISOString();
+    
+      // Today Login COUNT
       const { count: todayLogins } = await supabaseServer
         .from('activity_log')
         .select('*', { count: 'exact', head: true })
         .eq('action', 'login')
-        .gte('created_at', today.toISOString());
-
+        .gte('created_at', todayISO);
+    
+      // Currently Online Count
       const { count: onlineNow } = await supabaseServer
         .from('user_presence')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'online');
-
+    
+      // 🔵 TODAY LOGIN LIST (with avatars)
+      const { data: todayLoginRows } = await supabaseServer
+        .from('activity_log')
+        .select('user_id,user_name,user_email,user_type,created_at')
+        .eq('action', 'login')
+        .gte('created_at', todayISO)
+        .order('created_at', { ascending: false });
+    
+      // Get avatars from user_presence for each login
+      const todayLoginsList = await Promise.all(
+        (todayLoginRows ?? []).map(async (row) => {
+          const { data: presenceData } = await supabaseServer
+            .from('user_presence')
+            .select('avatar_url')
+            .eq('user_id', row.user_id)
+            .single();
+    
+          return {
+            user_id: row.user_id,
+            user_name: row.user_name,
+            user_email: row.user_email,
+            user_type: row.user_type,
+            avatar_url: presenceData?.avatar_url || null,
+            created_at: row.created_at,
+          };
+        })
+      );
+    
+      // 📈 LAST 7 DAYS LOGIN TREND
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 6); // include today
+      startDate.setHours(0, 0, 0, 0);
+    
+      const { data: loginRows } = await supabaseServer
+        .from('activity_log')
+        .select('created_at')
+        .eq('action', 'login')
+        .gte('created_at', startDate.toISOString());
+    
+      // aggregate by day
+      const counts: Record<string, number> = {};
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + i);
+        const key = d.toISOString().slice(0, 10); // yyyy-mm-dd
+        counts[key] = 0;
+      }
+    
+      (loginRows ?? []).forEach((row) => {
+        const key = row.created_at.slice(0, 10);
+        if (counts[key] !== undefined) counts[key]++;
+      });
+    
+      const last7daysLogins = Object.entries(counts).map(([date, count]) => ({
+        date,
+        count,
+      }));
+    
+      // 🆕 MOST VISITED PAGE (TODAY)
+      const { data: pageViewRows } = await supabaseServer
+        .from('activity_log')
+        .select('page_path')
+        .eq('action', 'page_view')
+        .gte('created_at', todayISO);
+    
+      let mostVisitedPage = null;
+      if (pageViewRows && pageViewRows.length > 0) {
+        const pageCounts: Record<string, number> = {};
+        pageViewRows.forEach((row) => {
+          if (row.page_path) {
+            pageCounts[row.page_path] = (pageCounts[row.page_path] || 0) + 1;
+          }
+        });
+    
+        if (Object.keys(pageCounts).length > 0) {
+          const sorted = Object.entries(pageCounts).sort((a, b) => b[1] - a[1]);
+          mostVisitedPage = {
+            page_path: sorted[0][0],
+            count: sorted[0][1],
+          };
+        }
+      }
+    
+      // 🆕 AVERAGE SESSION DURATION (TODAY)
+      const { data: logoutRows } = await supabaseServer
+        .from('activity_log')
+        .select('session_duration')
+        .eq('action', 'logout')
+        .gte('created_at', todayISO)
+        .not('session_duration', 'is', null);
+    
+      let avgSessionDurationSeconds = null;
+      if (logoutRows && logoutRows.length > 0) {
+        const totalSeconds = logoutRows.reduce(
+          (sum, row) => sum + (row.session_duration || 0),
+          0
+        );
+        avgSessionDurationSeconds = Math.round(totalSeconds / logoutRows.length);
+      }
+    
       return NextResponse.json({
         success: true,
         stats: {
           todayLogins: todayLogins || 0,
           currentlyOnline: onlineNow || 0,
+          todayLoginsList,
+          last7daysLogins,
+          mostVisitedPage,
+          avgSessionDurationSeconds,
         },
       });
     }
