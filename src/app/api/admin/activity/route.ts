@@ -129,7 +129,7 @@ if (endDateParam) {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'online');
     
-      // 🔵 TODAY LOGIN LIST (with avatars from auth.users)
+      // 🔵 TODAY LOGIN LIST (deduplicated by user, most recent only)
       const { data: todayLoginRows } = await supabaseServer
         .from('activity_log')
         .select('user_id,user_name,user_email,user_type,created_at')
@@ -137,9 +137,19 @@ if (endDateParam) {
         .gte('created_at', todayISO)
         .order('created_at', { ascending: false });
     
-      // 🆕 Get fresh avatars from auth.users (not stale user_presence)
+      // 🆕 Deduplicate by user_id (keep only most recent login per user)
+      const seenUsers = new Set<string>();
+      const uniqueLoginRows = (todayLoginRows ?? []).filter((row) => {
+        if (seenUsers.has(row.user_id)) {
+          return false; // Skip duplicate
+        }
+        seenUsers.add(row.user_id);
+        return true; // Keep first occurrence (most recent)
+      });
+    
+      // Get fresh avatars from auth.users
       const todayLoginsList = await Promise.all(
-        (todayLoginRows ?? []).map(async (row) => {
+        uniqueLoginRows.map(async (row) => {
           try {
             // Get fresh avatar from auth.users
             const { data: authUser } = await supabaseServer.auth.admin.getUserById(row.user_id);
@@ -149,7 +159,7 @@ if (endDateParam) {
               user_name: authUser?.user?.user_metadata?.display_name || row.user_name,
               user_email: row.user_email,
               user_type: row.user_type,
-              avatar_url: authUser?.user?.user_metadata?.avatar_url || null, // Fresh from auth!
+              avatar_url: authUser?.user?.user_metadata?.avatar_url || null,
               created_at: row.created_at,
             };
           } catch (err) {
