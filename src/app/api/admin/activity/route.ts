@@ -129,7 +129,7 @@ if (endDateParam) {
         .select('*', { count: 'exact', head: true })
         .eq('status', 'online');
     
-      // 🔵 TODAY LOGIN LIST (with avatars)
+      // 🔵 TODAY LOGIN LIST (with avatars from auth.users)
       const { data: todayLoginRows } = await supabaseServer
         .from('activity_log')
         .select('user_id,user_name,user_email,user_type,created_at')
@@ -137,23 +137,32 @@ if (endDateParam) {
         .gte('created_at', todayISO)
         .order('created_at', { ascending: false });
     
-      // Get avatars from user_presence for each login
+      // 🆕 Get fresh avatars from auth.users (not stale user_presence)
       const todayLoginsList = await Promise.all(
         (todayLoginRows ?? []).map(async (row) => {
-          const { data: presenceData } = await supabaseServer
-            .from('user_presence')
-            .select('avatar_url')
-            .eq('user_id', row.user_id)
-            .single();
-    
-          return {
-            user_id: row.user_id,
-            user_name: row.user_name,
-            user_email: row.user_email,
-            user_type: row.user_type,
-            avatar_url: presenceData?.avatar_url || null,
-            created_at: row.created_at,
-          };
+          try {
+            // Get fresh avatar from auth.users
+            const { data: authUser } = await supabaseServer.auth.admin.getUserById(row.user_id);
+            
+            return {
+              user_id: row.user_id,
+              user_name: authUser?.user?.user_metadata?.display_name || row.user_name,
+              user_email: row.user_email,
+              user_type: row.user_type,
+              avatar_url: authUser?.user?.user_metadata?.avatar_url || null, // Fresh from auth!
+              created_at: row.created_at,
+            };
+          } catch (err) {
+            console.error('Failed to fetch user metadata for', row.user_id, err);
+            return {
+              user_id: row.user_id,
+              user_name: row.user_name,
+              user_email: row.user_email,
+              user_type: row.user_type,
+              avatar_url: null,
+              created_at: row.created_at,
+            };
+          }
         })
       );
     
