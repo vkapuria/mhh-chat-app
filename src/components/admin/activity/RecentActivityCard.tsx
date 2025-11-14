@@ -198,18 +198,22 @@ export function RecentActivityCard() {
     {/* Filters */}
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       {/* Time Range Dropdown */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs md:text-sm font-medium text-slate-500">Time:</span>
-        <select
-          value={timeRange}
-          onChange={(e) => {
-            setTimeRange(e.target.value as '24h' | 'today' | 'yesterday' | '7d');
-            setPage(1);
-          }}
-          className="text-xs md:text-sm border border-slate-200 rounded-lg px-2 md:px-3 py-1.5 md:py-2 bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm"
-        >
-            </select>
-          </div>
+<div className="flex items-center gap-2">
+  <span className="text-sm font-medium text-slate-500">Time:</span>
+  <select
+    value={timeRange}
+    onChange={(e) => {
+      setTimeRange(e.target.value as '24h' | 'today' | 'yesterday' | '7d');
+      setPage(1);
+    }}
+    className="min-w-[140px] text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 shadow-sm cursor-pointer"
+  >
+    <option value="24h">Last 24 hours</option>
+    <option value="today">Today</option>
+    <option value="yesterday">Yesterday</option>
+    <option value="7d">Last 7 days</option>
+  </select>
+</div>
 
           {/* Action Filters */}
           <div className="flex flex-wrap gap-2 items-center">
