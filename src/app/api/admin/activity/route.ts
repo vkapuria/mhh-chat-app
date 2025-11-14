@@ -32,7 +32,27 @@ export async function GET(request: NextRequest) {
         .order('last_seen', { ascending: false });
 
       if (error) throw error;
-      return NextResponse.json({ success: true, users: onlineUsers });
+
+      // 🆕 Enrich with fresh avatars from auth.users
+      const enrichedUsers = await Promise.all(
+        (onlineUsers || []).map(async (user) => {
+          try {
+            // Get fresh avatar from auth.users
+            const { data: authUser } = await supabaseServer.auth.admin.getUserById(user.user_id);
+            
+            return {
+              ...user,
+              avatar_url: authUser?.user?.user_metadata?.avatar_url || user.avatar_url, // Use fresh avatar or fallback
+              user_name: authUser?.user?.user_metadata?.display_name || user.user_name, // Also update display name
+            };
+          } catch (err) {
+            console.error('Failed to fetch user metadata for', user.user_id, err);
+            return user; // Return original if fetch fails
+          }
+        })
+      );
+
+      return NextResponse.json({ success: true, users: enrichedUsers });
     }
 
     if (type === 'recent') {

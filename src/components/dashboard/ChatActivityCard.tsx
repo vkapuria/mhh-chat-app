@@ -75,6 +75,7 @@ export function ChatActivityCard({ conversations, userType }: ChatActivityCardPr
 
   const unread = enriched.filter((c) => c.unreadCount > 0).sort((a, b) => b.unreadCount - a.unreadCount);
   const fallbackLatest = enriched
+    .filter((c) => c.lastMessage || c.lastText) // ← Only show if has messages
     .slice()
     .sort((a, b) => new Date(b.updated_at || b.lastMessage?.created_at || 0).getTime()
                    - new Date(a.updated_at || a.lastMessage?.created_at || 0).getTime());
@@ -141,7 +142,7 @@ export function ChatActivityCard({ conversations, userType }: ChatActivityCardPr
                     <div className="text-[11px] text-slate-500 mb-1">{c.otherPartyName}</div>
 
                     {/* message bubble */}
-                    <div className="inline-block max-w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 shadow-sm shadow-slate-900/20">
+                    <div className="inline-block max-w-full px-3 py-2 rounded-xl bg-indigo-600 border border-indigo-700 shadow-sm shadow-indigo-900/20">
                       <p className="text-xs text-white/95 truncate">{c.lastText || '—'}</p>
                     </div>
                   </div>
