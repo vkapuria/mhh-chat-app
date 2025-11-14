@@ -1,88 +1,113 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { driver } from 'driver.js';
 import 'driver.js/dist/driver.css';
 import { expertTourSteps, customerTourSteps } from './tourSteps';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { useAuthStore } from '@/store/auth-store';
 
 interface OnboardingTourProps {
   userType: 'customer' | 'expert' | 'admin';
 }
 
 export default function OnboardingTour({ userType }: OnboardingTourProps) {
-  const supabase = createClientComponentClient();
+  const { user } = useAuthStore();
+  const [isDesktop, setIsDesktop] = useState(false);
+
+  // Check if desktop on mount and window resize
+  useEffect(() => {
+    const checkIfDesktop = () => {
+      // Match your md: breakpoint (992px)
+      const desktop = window.innerWidth >= 992;
+      setIsDesktop(desktop);
+      console.log('📱 Screen size check:', window.innerWidth, 'px -', desktop ? 'DESKTOP' : 'MOBILE');
+    };
+
+    // Check on mount
+    checkIfDesktop();
+
+    // Check on resize
+    window.addEventListener('resize', checkIfDesktop);
+    return () => window.removeEventListener('resize', checkIfDesktop);
+  }, []);
 
   useEffect(() => {
-    checkAndStartTour();
-  }, [userType]);
+    // Only run on desktop with authenticated user
+    if (user?.id && isDesktop) {
+      console.log('🎯 Desktop detected - checking onboarding status...');
+      checkAndStartTour();
+    } else if (user?.id && !isDesktop) {
+      console.log('📱 Mobile detected - skipping onboarding tour (will show on desktop)');
+    }
+  }, [user?.id, userType, isDesktop]);
 
   const checkAndStartTour = async () => {
+    if (!user?.id) return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      // Check onboarding status via API
+      const response = await fetch('/api/onboarding');
+      const data = await response.json();
 
-      // Check if onboarding completed
-      const { data: onboarding } = await supabase
-        .from('user_onboarding')
-        .select('onboarding_completed')
-        .eq('user_id', user.id)
-        .single();
+      console.log('📊 Onboarding status:', data);
 
-      // If no record or not completed, start tour
-      if (!onboarding || !onboarding.onboarding_completed) {
-        // Create onboarding record if it doesn't exist
-        if (!onboarding) {
-          await supabase
-            .from('user_onboarding')
-            .insert({
-              user_id: user.id,
-              onboarding_started_at: new Date().toISOString(),
-            });
+      if (!data.completed) {
+        console.log('🚀 Starting desktop tour!');
+        
+        // Create record if it doesn't exist
+        if (!data.exists) {
+          console.log('💾 Creating onboarding record...');
+          await fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'start' }),
+          });
         }
 
-        // Set appropriate steps based on user type
+        // Set steps based on user type
         const steps = userType === 'expert' ? expertTourSteps : customerTourSteps;
         
-        // Small delay to ensure DOM is ready
+        // Delay for DOM readiness
         setTimeout(() => {
-          startTour(steps, user.id);
-        }, 1500);
+          console.log('⏰ Starting tour now...');
+          startTour(steps);
+        }, 2000);
+      } else {
+        console.log('✅ Onboarding completed, skipping tour');
       }
     } catch (error) {
-      console.error('Error checking onboarding status:', error);
+      console.error('❌ Error checking onboarding:', error);
     }
   };
 
-  const startTour = (steps: any[], userId: string) => {
-    const driverObj = driver({
-      showProgress: true,
-      steps: steps,
-      onDestroyed: async () => {
-        // Mark onboarding as completed when tour ends
-        try {
-          await supabase
-            .from('user_onboarding')
-            .update({
-              onboarding_completed: true,
-              onboarding_completed_at: new Date().toISOString(),
-            })
-            .eq('user_id', userId);
-        } catch (error) {
-          console.error('Error marking onboarding complete:', error);
-        }
-      },
-      popoverClass: 'driverjs-theme',
-      nextBtnText: 'Next →',
-      prevBtnText: '← Back',
-      doneBtnText: 'Finish! 🎉',
-    });
-
-    driverObj.drive();
+  const startTour = (steps: any[]) => {
+    try {
+      const driverObj = driver({
+        showProgress: true,
+        steps: steps,
+        allowClose: false,  // ← ADD THIS: Can't close with X button
+        onDestroyed: async () => {
+          console.log('🏁 Tour completed');
+          // Mark as complete via API
+          await fetch('/api/onboarding', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'complete' }),
+          });
+        },
+        popoverClass: 'driverjs-theme',
+        nextBtnText: 'Next →',
+        prevBtnText: '← Back',
+        doneBtnText: 'Finish! 🎉',
+      });
+  
+      driverObj.drive();
+      console.log('✅ Tour started!');
+    } catch (error) {
+      console.error('❌ Error starting tour:', error);
+    }
   };
 
-  // Don't render for admin
   if (userType === 'admin') return null;
-
-  return null; // Driver.js handles its own rendering
+  return null;
 }

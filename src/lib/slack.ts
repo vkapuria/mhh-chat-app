@@ -240,4 +240,87 @@ export async function updateSlackTicketStatus(
     }
   }
 
+// ✨ NEW: Notify when user completes onboarding
+export async function notifyOnboardingCompleted({
+  userId,
+  userEmail,
+  userName,
+  userType,
+  completedAt,
+}: {
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userType: 'customer' | 'expert';
+  completedAt: string;
+}) {
+  try {
+    const channelId = process.env.SLACK_ONBOARDING_CHANNEL_ID;
+    
+    if (!channelId) {
+      console.error('SLACK_ONBOARDING_CHANNEL_ID not configured');
+      return false;
+    }
+
+    const emoji = userType === 'expert' ? '👨‍💼' : '👤';
+    const typeLabel = userType === 'expert' ? 'Expert' : 'Customer';
+    const timestamp = new Date(completedAt).toLocaleString('en-US', {
+      timeZone: 'America/New_York',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+
+    await slackClient.chat.postMessage({
+      channel: channelId,
+      text: `✅ ${userName} completed onboarding!`,
+      blocks: [
+        {
+          type: 'header',
+          text: {
+            type: 'plain_text',
+            text: '✅ Onboarding Completed',
+            emoji: true,
+          },
+        },
+        {
+          type: 'section',
+          fields: [
+            {
+              type: 'mrkdwn',
+              text: `*User:*\n${emoji} ${userName}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Type:*\n${typeLabel}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Email:*\n${userEmail}`,
+            },
+            {
+              type: 'mrkdwn',
+              text: `*Completed:*\n${timestamp} EST`,
+            },
+          ],
+        },
+        {
+          type: 'context',
+          elements: [
+            {
+              type: 'mrkdwn',
+              text: `User ID: \`${userId.substring(0, 8)}...\``,
+            },
+          ],
+        },
+      ],
+    });
+
+    console.log('✅ Onboarding completion posted to Slack');
+    return true;
+  } catch (error) {
+    console.error('Error posting onboarding to Slack:', error);
+    return false;
+  }
+}
+
 export { slackClient };

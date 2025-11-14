@@ -80,21 +80,27 @@ body {
   padding: 0.5rem 1rem;
   border-radius: 6px;
   transition: all 0.2s;
+  box-shadow: none !important; /* Remove any default shadows */
 }
 
 .driver-popover.driverjs-theme .driver-popover-next-btn {
   background-color: #007aff;
   color: #ffffff;
+  border: none;
+  box-shadow: none !important; /* Force remove shadow */
 }
 
 .driver-popover.driverjs-theme .driver-popover-next-btn:hover {
   background-color: #0051d5;
+  box-shadow: none !important; /* No shadow on hover either */
 }
 
 .driver-popover.driverjs-theme .driver-popover-prev-btn,
 .driver-popover.driverjs-theme .driver-popover-close-btn {
   color: #6b7280;
   background-color: transparent;
+  border: none;
+  box-shadow: none !important;
 }
 
 .driver-popover.driverjs-theme .driver-popover-prev-btn:hover,
@@ -106,4 +112,9 @@ body {
 .driver-popover.driverjs-theme .driver-popover-progress-text {
   font-size: 0.75rem;
   color: #6b7280;
+}
+
+/* Hide close button completely - mandatory onboarding */
+.driver-popover.driverjs-theme .driver-popover-close-btn {
+  display: none !important;
 }
