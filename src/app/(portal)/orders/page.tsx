@@ -4,11 +4,11 @@ import { useEffect, useState, useMemo } from 'react';
 import useSWR from 'swr';
 import { supabase } from '@/lib/supabase';
 import { fetcher } from '@/lib/fetcher';
-import { OrderCard } from '@/components/orders/OrderCard';
 import { OrderFilters } from '@/components/orders/OrderFilters';
 import { OrderSearch } from '@/components/orders/OrderSearch';
 import { OrdersSkeleton } from '@/components/loaders/OrdersSkeleton';
 import { OrdersGroupedView } from '@/components/orders/OrdersGroupedView';
+import { ClipboardDocumentListIcon } from '@heroicons/react/24/outline';
 
 interface Order {
   id: string;
@@ -43,11 +43,11 @@ export default function OrdersPage() {
     userId ? ['/api/orders', userId] : null,
     ([url]) => fetcher(url),
     {
-      refreshInterval: 60000, // 60s instead of 30s
-      revalidateOnFocus: false, // Don't refetch when returning to tab
-      revalidateOnReconnect: false, // Don't refetch on reconnect
-      dedupingInterval: 15000, // 15s dedup window (up from 5s)
-      revalidateOnMount: true, // Still fetch on first mount
+      refreshInterval: 60000, // 60s
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 15000,
+      revalidateOnMount: true,
     }
   );
 
@@ -56,7 +56,9 @@ export default function OrdersPage() {
   // Get user type AND userId on mount
   useEffect(() => {
     async function getUserInfo() {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (session) {
         const type = session.user.user_metadata?.user_type || 'customer';
         setUserType(type);
@@ -69,7 +71,7 @@ export default function OrdersPage() {
   // Fetch unread counts (separate from orders API)
   useEffect(() => {
     fetchUnreadCounts();
-    
+
     // Refresh unread counts every 15 seconds
     const interval = setInterval(fetchUnreadCounts, 15000);
     return () => clearInterval(interval);
@@ -77,7 +79,9 @@ export default function OrdersPage() {
 
   async function fetchUnreadCounts() {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: messages } = await supabase
@@ -98,24 +102,28 @@ export default function OrdersPage() {
     }
   }
 
-  // ✨ Memoized filtering (only re-compute when dependencies change)
+  // ✨ Memoized filtering
   const filteredOrders = useMemo(() => {
     let filtered = [...orders];
 
     // Apply status filter
     if (activeFilter === 'pending') {
-      filtered = filtered.filter(o => o.status === 'Pending');
+      filtered = filtered.filter((o) => o.status === 'Pending');
     } else if (activeFilter === 'active') {
-      filtered = filtered.filter(o => o.status === 'Assigned' || o.status === 'Revision');
+      filtered = filtered.filter(
+        (o) => o.status === 'Assigned' || o.status === 'Revision'
+      );
     } else if (activeFilter === 'completed') {
-      filtered = filtered.filter(o => o.status === 'Completed');
+      filtered = filtered.filter((o) => o.status === 'Completed');
     }
 
     // Apply search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        o => o.id.toLowerCase().includes(query) || o.title.toLowerCase().includes(query)
+        (o) =>
+          o.id.toLowerCase().includes(query) ||
+          o.title.toLowerCase().includes(query)
       );
     }
 
@@ -123,14 +131,19 @@ export default function OrdersPage() {
   }, [orders, activeFilter, searchQuery]);
 
   // ✨ Memoized counts
-  const counts = useMemo(() => ({
-    all: orders.length,
-    pending: orders.filter(o => o.status === 'Pending').length,
-    active: orders.filter(o => o.status === 'Assigned' || o.status === 'Revision').length,
-    completed: orders.filter(o => o.status === 'Completed').length,
-  }), [orders]);
+  const counts = useMemo(
+    () => ({
+      all: orders.length,
+      pending: orders.filter((o) => o.status === 'Pending').length,
+      active: orders.filter(
+        (o) => o.status === 'Assigned' || o.status === 'Revision'
+      ).length,
+      completed: orders.filter((o) => o.status === 'Completed').length,
+    }),
+    [orders]
+  );
 
-  // Loading state with beautiful skeleton
+  // Loading state with skeleton
   if (isLoading || !data) {
     return <OrdersSkeleton />;
   }
@@ -140,9 +153,9 @@ export default function OrdersPage() {
     return (
       <div className="p-6">
         <div className="max-w-7xl mx-auto">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
             <p className="text-red-800 font-medium">Failed to load orders</p>
-            <p className="text-red-600 text-sm mt-1">{error.message}</p>
+            <p className="text-red-600 text-sm mt-1">{(error as any).message}</p>
           </div>
         </div>
       </div>
@@ -153,20 +166,22 @@ export default function OrdersPage() {
     <div className="p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div>
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold text-slate-900">
             {userType === 'customer' ? 'My Orders' : 'My Assignments'}
           </h1>
-          <p className="text-slate-600 mt-1">
-            {userType === 'customer' 
-              ? 'Track and manage your homework orders'
-              : 'View and work on your assigned tasks'}
+          <p className="text-slate-600">
+            {userType === 'customer'
+              ? 'Track and manage your homework orders in one place.'
+              : 'Review and work on your assigned tasks.'}
           </p>
         </div>
 
-        {/* Search & Filters */}
-        <div className="space-y-4">
-          <OrderSearch value={searchQuery} onChange={setSearchQuery} />
+        {/* Search & Filters toolbar */}
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="w-full md:max-w-md">
+            <OrderSearch value={searchQuery} onChange={setSearchQuery} />
+          </div>
           <OrderFilters
             activeFilter={activeFilter}
             onFilterChange={setActiveFilter}
@@ -175,23 +190,35 @@ export default function OrdersPage() {
         </div>
 
         {/* Orders Grouped by Month */}
-{filteredOrders.length === 0 ? (
-  <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
-    <p className="text-slate-500">
-      {searchQuery
-        ? 'No orders found matching your search'
-        : activeFilter === 'all'
-        ? 'No orders yet'
-        : `No ${activeFilter} orders`}
-    </p>
-  </div>
-) : (
-  <OrdersGroupedView
-    orders={filteredOrders}
-    userType={userType}
-    unreadCounts={unreadCounts}
-  />
-)}
+        {filteredOrders.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="rounded-full bg-slate-100 p-3">
+                <ClipboardDocumentListIcon className="w-6 h-6 text-slate-400" />
+              </div>
+              <p className="text-sm font-medium text-slate-800">
+                {searchQuery
+                  ? 'No orders match your search.'
+                  : activeFilter === 'all'
+                  ? 'You don’t have any orders yet.'
+                  : `No ${activeFilter} orders to show.`}
+              </p>
+              <p className="text-xs text-slate-500 max-w-sm">
+                {searchQuery
+                  ? 'Try a different keyword or clear the search to see all your orders.'
+                  : userType === 'customer'
+                  ? 'Place a new order to see it appear here and track it in real time.'
+                  : 'New assignments will appear here as soon as they are allocated to you.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <OrdersGroupedView
+            orders={filteredOrders}
+            userType={userType}
+            unreadCounts={unreadCounts}
+          />
+        )}
       </div>
     </div>
   );

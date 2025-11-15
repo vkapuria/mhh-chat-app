@@ -1,11 +1,19 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { ContactSupportModal } from '@/components/support/ContactSupportModal';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { CheckCircleIcon, ClockIcon, ArrowPathIcon } from '@heroicons/react/24/solid';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  DollarCircleIcon,
+  Calendar03Icon,
+  Message02Icon,
+  StarIcon,
+  CheckmarkCircle01Icon,
+} from '@hugeicons/core-free-icons';
 import { trackOrderViewed } from '@/lib/analytics';
 
 interface OrderCardProps {
@@ -20,12 +28,14 @@ interface OrderCardProps {
     customer_name?: string;
     customer_display_name?: string;
     customer_email?: string;
+    customer_avatar?: string;
     expert_name?: string;
     expert_display_name?: string;
     expert_id?: string;
+    expert_avatar?: string;
     created_at: string;
     updated_at: string;
-    completed_at?: string;  // ← ADD THIS LINE
+    completed_at?: string;
     rating?: {
       average?: number;
       count?: number;
@@ -43,7 +53,9 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
 
   useEffect(() => {
     async function getUserInfo() {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user) {
         setUserName(user.user_metadata?.name || '');
         setUserEmail(user.email || '');
@@ -51,203 +63,321 @@ export function OrderCard({ order, userType, unreadCount = 0 }: OrderCardProps) 
     }
     getUserInfo();
   }, []);
-  
-  const getStatusColor = (status: string) => {
+
+  const getStatusConfig = (status: string) => {
     switch (status) {
       case 'Completed':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return {
+          color: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+          text: 'Completed',
+        };
       case 'Assigned':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return {
+          color: 'bg-blue-50 text-blue-700 border-blue-200',
+          text: 'In Progress',
+        };
       case 'Revision':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return {
+          color: 'bg-amber-50 text-amber-700 border-amber-200',
+          text: 'Under Revision',
+        };
       case 'Pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return {
+          color: 'bg-slate-50 text-slate-700 border-slate-200',
+          text: 'Pending Assignment',
+        };
       case 'Cancelled':
       case 'Refunded':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return {
+          color: 'bg-red-50 text-red-700 border-red-200',
+          text: status,
+        };
       default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
+        return {
+          color: 'bg-slate-50 text-slate-700 border-slate-200',
+          text: status,
+        };
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'Revision':
-        return 'Under Revision';
-      default:
-        return order.status;
+  const statusConfig = getStatusConfig(order.status);
+  
+  // Chat is allowed for Pending, Assigned, Revision, AND 72h after completion
+  const canChat = (() => {
+    // Active statuses can always chat
+    if (['Pending', 'Assigned', 'Revision'].includes(order.status)) {
+      return true;
     }
+    
+    // Completed orders: check if within 72 hours
+    if (order.status === 'Completed' && order.completed_at) {
+      const completedAt = new Date(order.completed_at).getTime();
+      const now = new Date().getTime();
+      const hoursSinceCompletion = (now - completedAt) / (1000 * 60 * 60);
+      return hoursSinceCompletion < 72;
+    }
+    
+    return false;
+  })();
+
+  // Calculate hours remaining for completed orders
+  const getHoursRemaining = () => {
+    if (order.status !== 'Completed' || !order.completed_at) return null;
+    
+    const completedAt = new Date(order.completed_at).getTime();
+    const now = new Date().getTime();
+    const hoursSinceCompletion = (now - completedAt) / (1000 * 60 * 60);
+    const hoursRemaining = Math.max(0, 72 - hoursSinceCompletion);
+    
+    return Math.ceil(hoursRemaining);
   };
 
-  // Chat is allowed for Pending, Assigned, and Revision statuses
-  const canChat = ['Pending', 'Assigned', 'Revision'].includes(order.status);
+  const hoursRemaining = getHoursRemaining();
+
+  // Determine other party info
+  const otherPartyName =
+    userType === 'customer'
+      ? order.expert_display_name || 'Expert'
+      : order.customer_display_name || 'Student';
+
+  const otherPartyAvatar =
+    userType === 'customer' ? order.expert_avatar : order.customer_avatar;
+
+  // Generate initials for avatar fallback
+  const getInitials = (name: string) =>
+    name
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+
+  const isClosed = ['Completed', 'Cancelled', 'Refunded'].includes(order.status);
 
   return (
-    <div className="relative bg-white rounded-lg shadow-sm border border-slate-200 p-6 pt-7 mt-6 flex flex-col justify-between hover:shadow-md transition-shadow">
-      {/* Status Badge - Top Center Tab */}
-      <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-      <Badge className={`flex items-center gap-1.5 px-3 py-1.5 shadow-md ${getStatusColor(order.status)}`}>
-        {order.status === 'Completed' && (
-          <CheckCircleIcon className="w-5 h-5" />
-        )}
-        {order.status === 'Assigned' && (
-          <ClockIcon className="w-5 h-5" />
-        )}
-        {order.status === 'Revision' && (
-          <ArrowPathIcon className="w-5 h-5" />
-        )}
-        {order.status === 'Pending' && (
-          <ClockIcon className="w-5 h-5" />
-        )}
-          <span className="font-semibold">{getStatusText(order.status)}</span>
-        </Badge>
+    <div className="bg-white rounded-2xl border border-slate-100 hover:border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.04)] hover:shadow-[0_4px_14px_rgba(15,23,42,0.08)] transition-all duration-200">
+      {/* SECTION 1: Header */}
+      <div className="px-6 pt-4 pb-2 border-b border-slate-50">
+        
+        <h3
+          className="text-[16px] font-semibold text-slate-900 mb-1.5 leading-snug truncate"
+          title={order.title}
+        >
+          {order.title}
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-mono text-slate-400">{order.id}</span>
+        </div>
       </div>
-  
-      {/* Top Section */}
-      <div>
-        {/* Title & Task Code - Now Full Width */}
-        <div className="mb-4 text-center">
-          <h4 className="text-base font-semibold text-slate-900 truncate" title={order.title}>
-            {order.title}
-          </h4>
-          <p className="text-sm text-slate-500 truncate">
-            {order.id}
-          </p>
+
+      {/* SECTION 2: Key Info Block */}
+      <div className="px-6 py-5 space-y-4">
+        {/* Other Party (Expert/Student) with Avatar */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {otherPartyAvatar ? (
+              <Image
+                src={otherPartyAvatar}
+                alt={otherPartyName}
+                width={36}
+                height={36}
+                className="w-9 h-9 rounded-full object-cover border border-slate-200"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-700 border border-slate-200">
+                {getInitials(otherPartyName)}
+              </div>
+            )}
+            <div className="flex flex-col">
+              <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                {userType === 'customer' ? 'Your Expert' : 'Student'}
+              </span>
+              <span className="text-sm font-semibold text-slate-900">
+                {otherPartyName}
+              </span>
+            </div>
+          </div>
+
+          <Badge
+            variant="outline"
+            className={`${statusConfig.color} border text-[11px] font-medium px-2.5 py-0.5 rounded-full`}
+          >
+            {statusConfig.text}
+          </Badge>
         </div>
 
-        {/* Order Details */}
-        <div className="space-y-3 mb-6">
-          {userType === 'customer' && order.expert_name && (
-            <div className="flex items-center text-sm text-slate-600 gap-3">
-              <img src="/icons/user-profile.svg" alt="Expert" className="w-6 h-6 flex-shrink-0" />
-              <span className="font-medium">Expert:</span>
-              <span>{order.expert_display_name || order.expert_name}</span>
+        {/* Divider */}
+        <div className="h-px bg-slate-200" />
+
+        {/* Price / Earnings */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-slate-500">
+            <HugeiconsIcon
+              icon={DollarCircleIcon}
+              size={22}
+              strokeWidth={1.6}
+              className="text-slate-400"
+            />
+            <span className="text-xs uppercase tracking-wide">
+              {userType === 'expert' ? 'Your Earnings' : 'Amount Paid'}
+            </span>
+          </div>
+          <span className="font-semibold text-slate-900">
+            {userType === 'expert'
+              ? `₹${order.expert_fee || order.amount}`
+              : `$${order.amount}`}
+          </span>
+        </div>
+
+        {/* Ordered Date */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-2 text-slate-500">
+            <HugeiconsIcon
+              icon={Calendar03Icon}
+              size={22}
+              strokeWidth={1.6}
+              className="text-slate-400"
+            />
+            <span className="text-xs uppercase tracking-wide">Ordered</span>
+          </div>
+          <span className="text-sm text-slate-900">
+            {format(new Date(order.created_at), 'MMM d, yyyy')}
+          </span>
+        </div>
+      </div>
+
+      {/* SECTION 3: Secondary Info (only if relevant) */}
+      {(order.status === 'Completed' || (userType === 'expert' && order.rating)) && (
+        <div className="px-6 pb-4 pt-3 border-t border-slate-50 space-y-2">
+          {/* Completed Date */}
+          {order.status === 'Completed' && order.completed_at && (
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                <HugeiconsIcon
+                  icon={CheckmarkCircle01Icon}
+                  size={22}
+                  strokeWidth={1.6}
+                  className="text-emerald-600"
+                />
+                <span className="text-xs uppercase tracking-wide text-slate-400">
+                  Completed
+                </span>
+              </div>
+              <span className="text-sm font-semibold text-emerald-700">
+                {format(new Date(order.completed_at), 'MMM d, yyyy')}
+              </span>
             </div>
           )}
-          {userType === 'expert' && order.customer_name && (
-            <div className="flex items-center text-sm text-slate-600 gap-3">
-              <img src="/icons/user-profile.svg" alt="Customer" className="w-6 h-6 flex-shrink-0" />
-              <span className="font-medium">Customer:</span>
-              <span>{order.customer_display_name || order.customer_name}</span>
-            </div>
-          )}
-          
-          {/* Rating Display (Only for Experts on Completed Orders) */}
+
+          {/* Rating (Expert view only) */}
           {userType === 'expert' && order.rating && (
-            <div className="flex items-center text-sm gap-3">
+            <div className="flex items-center justify-between text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                <HugeiconsIcon
+                  icon={StarIcon}
+                  size={18}
+                  strokeWidth={1.6}
+                  className={
+                    order.rating.average ? 'text-amber-500' : 'text-slate-400'
+                  }
+                />
+                <span className="text-xs uppercase tracking-wide text-slate-400">
+                  Rating
+                </span>
+              </div>
+
               {order.rating.average ? (
-                <>
-                  <img src="/icons/review.svg" alt="Rating" className="w-6 h-6 flex-shrink-0" />
-                  <span className="font-medium text-slate-600">Rating:</span>
-                  <div className="flex items-center gap-1">
-                    <span className="font-semibold text-amber-600">{order.rating.average}</span>
-                    <img src="/icons/favourite.svg" alt="Star" className="w-4 h-4" />
-                  </div>
-                </>
-              ) : order.rating.status === 'pending' ? (
-                <>
-                  <img src="/icons/like.svg" alt="Pending" className="w-6 h-6 text-slate-400 flex-shrink-0" />
-                  <span className="font-medium text-slate-600">Rating:</span>
-                  <span className="text-slate-500 text-xs">
-                    Pending
-                    {order.rating.days_since_completion !== undefined && order.rating.days_since_completion < 6
-                      ? ` (Day ${order.rating.days_since_completion}/6)`
-                      : ''}
+                <div className="flex items-center gap-1">
+                  <span className="text-sm font-semibold text-amber-600">
+                    {order.rating.average}
                   </span>
-                </>
+                  <span className="text-xs text-slate-400">/ 5.0</span>
+                </div>
+              ) : order.rating.status === 'pending' ? (
+                <span className="text-xs text-slate-500 italic">
+                  Pending
+                  {order.rating.days_since_completion !== undefined &&
+                  order.rating.days_since_completion < 6
+                    ? ` · Day ${order.rating.days_since_completion}/6`
+                    : ''}
+                </span>
               ) : null}
             </div>
           )}
-
-          <div className="flex items-center text-sm text-slate-600 gap-3">
-            <img src="/icons/earning.svg" alt="Amount" className="w-6 h-6 flex-shrink-0" />
-            <span className="font-medium">
-              {userType === 'expert' ? 'Earnings:' : 'Price:'}
-            </span>
-            <span className="font-semibold">
-              {userType === 'expert'
-                ? `₹${order.expert_fee || order.amount}`
-                : `$${order.amount}`}
-            </span>
-          </div>
-          {/* Ordered Date */}
-<div className="flex items-center text-sm text-slate-600 gap-3">
-  <img src="/icons/calendar-table.svg" alt="Date" className="w-6 h-6 flex-shrink-0" />
-  <span className="font-medium">Ordered:</span>
-  <span>{format(new Date(order.created_at), 'MMM d, yyyy')}</span>
-</div>
-
-{/* Completed Date */}
-{order.status === 'Completed' && order.completed_at ? (
-  <div className="flex items-center text-sm text-slate-600 gap-3">
-    <img src="/icons/like.svg" alt="Completed" className="w-6 h-6 flex-shrink-0" />
-    <span className="font-medium">Completed:</span>
-    <span className="text-green-700 font-semibold">
-      {format(new Date(order.completed_at), 'MMM d, yyyy')}
-    </span>
-  </div>
-) : order.status !== 'Completed' && order.status !== 'Cancelled' && order.status !== 'Refunded' ? (
-  <div className="flex items-center text-sm text-slate-400 gap-3">
-    <img src="/icons/calendar-table.svg" alt="Not Completed" className="w-6 h-6 flex-shrink-0 opacity-50" />
-    <span className="font-medium">Completed:</span>
-    <span className="italic">Not completed yet</span>
-  </div>
-) : null}
         </div>
-      </div>
+      )}
 
-      {/* Actions Block */}
-      <div className="flex flex-col gap-2"> 
-      {canChat ? (
-        <Link 
-          href={`/messages/${order.id}`} 
-          className="w-full"
-          onClick={() => {
-            trackOrderViewed({
-              orderId: order.id,
-              userType: userType,
-            });
-          }}
-        >
-          <Button
-            variant="default"
-            className="w-full font-semibold bg-slate-900 text-white hover:bg-primary"
+      {/* SECTION 4: Actions */}
+      <div className="px-6 pb-6 pt-4 border-t border-slate-50 space-y-3">
+        {/* Chat Button */}
+        {canChat ? (
+          <Link
+            href={`/messages/${order.id}`}
+            className="block"
+            onClick={() => {
+              trackOrderViewed({
+                orderId: order.id,
+                userType,
+              });
+            }}
           >
-            <img src="/icons/chat-bubble.svg" alt="Chat" className="w-6 h-6 mr-1" />
-            {userType === 'expert' ? 'Chat with Customer' : 'Chat with Expert'}
-            {unreadCount > 0 && (
-              <span className="ml-2 bg-white text-blue-600 text-xs font-bold px-2 py-0.5 rounded-full">
-                {unreadCount}
+            <Button 
+              className={`w-full h-11 rounded-lg font-medium flex items-center justify-center gap-2 ${
+                order.status === 'Completed' && hoursRemaining
+                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+              }`}
+            >
+              <HugeiconsIcon
+                icon={Message02Icon}
+                size={18}
+                strokeWidth={1.5}
+                className="text-white"
+              />
+              <span>
+                {order.status === 'Completed' && hoursRemaining
+                  ? `Chat (closes in ${hoursRemaining}h)`
+                  : userType === 'expert' 
+                    ? 'Chat with Student' 
+                    : 'Chat with Expert'
+                }
               </span>
-            )}
-          </Button>
-        </Link>
-      ) : (
-          <Button 
-            variant="outline" 
-            className="w-full" 
+              {unreadCount > 0 && (
+                <span className="ml-auto bg-white text-xs font-bold px-2 py-0.5 rounded-full ${
+                  order.status === 'Completed' ? 'text-emerald-900' : 'text-slate-900'
+                }">
+                  {unreadCount}
+                </span>
+              )}
+            </Button>
+          </Link>
+        ) : (
+          <Button
+            variant="outline"
+            className="w-full h-11 rounded-lg text-sm"
             disabled
           >
-            {(order.status === 'Completed' || order.status === 'Cancelled' || order.status === 'Refunded')
-              ? 'Chat Closed'
-              : getStatusText(order.status)
-            }
+            {isClosed ? 'Chat Closed' : statusConfig.text}
           </Button>
         )}
 
+        {/* Support Button */}
         <ContactSupportModal
           order={order}
           userType={userType}
           userName={userName}
           userEmail={userEmail}
         >
-          <Button 
-            variant="outline" 
-            className="w-full"
+          <Button
+            variant="ghost"
+            className="w-full h-11 rounded-lg bg-slate-100 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-50 flex items-center justify-center gap-2"
           >
-            <img src="/icons/lifesaver.svg" alt="Support" className="w-5 h-5 mr-1" />
-            <span className="sm:hidden">Need Help?</span>
-            <span className="hidden sm:inline">Need Help? Contact Support</span>
+            <img
+              src="/icons/lifesaver.svg"
+              alt="Support"
+              className="w-4 h-4"
+            />
+            <span>Get help with this order</span>
           </Button>
         </ContactSupportModal>
       </div>

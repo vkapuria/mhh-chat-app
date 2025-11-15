@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseAdmin } from '@/lib/supabase';
 import { getCachedUser } from '@/lib/cached-auth';
 import { withPerformanceLogging } from '@/lib/api-timing';
 import { trackAsync, perfLogger } from '@/lib/performance-logger';
@@ -43,6 +43,8 @@ async function ordersHandler(request: NextRequest) {
       updated_at,
       customer_name,
       customer_display_name,
+      customer_email,
+      expert_id,
       expert_name,
       expert_display_name,
       amount,
@@ -88,6 +90,43 @@ async function ordersHandler(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+     // 🆕 Get display names from auth.users for orders missing them
+     const expertIds = [...new Set(orders?.map((o: any) => o.expert_id).filter(Boolean))];
+     const customerEmails = [...new Set(orders?.map((o: any) => o.customer_email).filter(Boolean))];
+ 
+     // Fetch all auth users
+     const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers();
+ 
+ // Build display name and avatar maps
+ const expertDisplayNameMap = new Map<string, string>();
+ const expertAvatarMap = new Map<string, string>();
+ const customerDisplayNameMap = new Map<string, string>();
+ const customerAvatarMap = new Map<string, string>();
+
+ authUsers?.users.forEach((authUser: any) => {
+   const expertId = authUser.user_metadata?.expert_id;
+   const displayName = authUser.user_metadata?.display_name;
+   const avatarUrl = authUser.user_metadata?.avatar_url;
+
+   // Map expert_id → display_name & avatar
+   if (expertId && expertIds.includes(expertId)) {
+     if (displayName) expertDisplayNameMap.set(expertId, displayName);
+     if (avatarUrl) expertAvatarMap.set(expertId, avatarUrl);
+   }
+
+   // Map email → display_name & avatar
+   if (authUser.email && customerEmails.includes(authUser.email)) {
+     if (displayName) customerDisplayNameMap.set(authUser.email, displayName);
+     if (avatarUrl) customerAvatarMap.set(authUser.email, avatarUrl);
+   }
+ });
+
+     // 🐛 DEBUG LOGS
+    console.log('📊 Expert IDs from orders:', expertIds);
+    console.log('📊 Expert Display Name Map:', Object.fromEntries(expertDisplayNameMap));
+    console.log('📊 Total auth users fetched:', authUsers?.users?.length);
+    console.log('📊 Sample auth user:', authUsers?.users?.[0]?.user_metadata);
+
     // ✅ FIX: Get ALL ratings in ONE batch query
     const completedOrderIds = orders
       ?.filter((o: any) => o.status === 'Completed')
@@ -115,6 +154,16 @@ async function ordersHandler(request: NextRequest) {
 
     // ✅ Build response WITHOUT database calls
     const ordersWithRatings = (orders || []).map((order: any) => {
+      // 🆕 Use display names and avatars from auth.users
+      const expertDisplayName = order.expert_display_name || expertDisplayNameMap.get(order.expert_id) || 'Expert';
+      const expertAvatar = expertAvatarMap.get(order.expert_id);
+      const customerDisplayName = order.customer_display_name || customerDisplayNameMap.get(order.customer_email) || 'Student';
+      const customerAvatar = customerAvatarMap.get(order.customer_email);
+
+            // 🐛 DEBUG LOG
+            console.log(`Order ${order.id}: expert_id=${order.expert_id}, mapped_name=${expertDisplayNameMap.get(order.expert_id)}, final_name=${expertDisplayName}`);
+
+
       let rating = null;
 
       if (order.status === 'Completed') {
@@ -144,6 +193,10 @@ async function ordersHandler(request: NextRequest) {
 
       return {
         ...order,
+        expert_display_name: expertDisplayName,
+        expert_avatar: expertAvatar,  // ✅ Add avatar
+        customer_display_name: customerDisplayName,
+        customer_avatar: customerAvatar,  // ✅ Add avatar
         rating,
       };
     });

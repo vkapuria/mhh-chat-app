@@ -45,34 +45,35 @@ export function OrdersGroupedView({
   // Determine which months should be expanded by default
   const currentMonth = format(new Date(), 'MMMM yyyy');
 
-  const shouldExpand = (month: string, orders: any[]) => {
+  const shouldExpand = (month: string, ordersForMonth: any[]) => {
     // Always expand current month
     if (month === currentMonth) return true;
 
     // Expand if it has active orders
-    const hasActive = orders.some(o =>
+    const hasActive = ordersForMonth.some((o) =>
       ['Assigned', 'Pending', 'Revision'].includes(o.status)
     );
     return hasActive;
   };
 
   if (groupedOrders.length === 0) {
+    // This is mostly defensive – parent already handles empty state
     return (
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-12 text-center">
-        <p className="text-slate-500">No orders yet</p>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center">
+        <p className="text-sm text-slate-500">No orders to show yet.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
-      {groupedOrders.map(({ month, orders }) => (
+    <div className="space-y-5">
+      {groupedOrders.map(({ month, orders: monthOrders }) => (
         <MonthlyOrderGroup
           key={month}
           month={month}
-          orders={orders}
+          orders={monthOrders}
           userType={userType}
-          defaultExpanded={shouldExpand(month, orders)}
+          defaultExpanded={shouldExpand(month, monthOrders)}
           unreadCounts={unreadCounts}
         />
       ))}

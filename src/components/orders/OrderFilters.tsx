@@ -1,8 +1,9 @@
+import { HugeiconsIcon } from '@hugeicons/react';
 import {
-  ClipboardDocumentListIcon,
-  ClockIcon,
-  CheckCircleIcon,
-} from '@heroicons/react/24/outline';
+  TaskDone01Icon,
+  Clock01Icon,
+  TickDouble03Icon,
+} from '@hugeicons/core-free-icons';
 
 interface OrderFiltersProps {
   activeFilter: string;
@@ -15,58 +16,73 @@ interface OrderFiltersProps {
   };
 }
 
-export function OrderFilters({ activeFilter, onFilterChange, counts }: OrderFiltersProps) {
+export function OrderFilters({
+  activeFilter,
+  onFilterChange,
+  counts,
+}: OrderFiltersProps) {
   const filters = [
-    { 
-      id: 'all', 
-      label: 'All Orders', 
+    {
+      id: 'all',
+      label: 'All',
       count: counts.all,
-      icon: ClipboardDocumentListIcon,
-      countColor: 'bg-slate-100 text-slate-600'
+      icon: TaskDone01Icon,
     },
-    { 
-      id: 'active', 
-      label: 'Active', 
+    {
+      id: 'active',
+      label: 'In progress',
       count: counts.active,
-      icon: ClockIcon,
-      countColor: 'bg-blue-100 text-blue-700'
+      icon: Clock01Icon,
     },
-    { 
-      id: 'completed', 
-      label: 'Completed', 
+    {
+      id: 'completed',
+      label: 'Completed',
       count: counts.completed,
-      icon: CheckCircleIcon,
-      countColor: 'bg-green-100 text-green-700'
+      icon: TickDouble03Icon,
     },
   ];
 
   return (
     <div className="flex flex-wrap gap-2">
       {filters.map((filter) => {
-        const Icon = filter.icon;
         const isActive = activeFilter === filter.id;
-        
+
         return (
           <button
             key={filter.id}
             onClick={() => onFilterChange(filter.id)}
+            aria-pressed={isActive}
             className={`
-              flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium 
-              whitespace-nowrap transition-all
-              min-h-[44px] active:scale-95
+              inline-flex items-center gap-2 rounded-full px-3.5 py-2 text-sm font-medium
+              border transition-all duration-150 whitespace-nowrap
+              active:scale-95
               ${
                 isActive
-                  ? 'bg-blue-600 text-white shadow-md'
-                  : 'bg-white text-slate-600 hover:bg-slate-50 border border-slate-200'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
               }
             `}
           >
-            <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+            {/* Icon (Hugeicons) */}
+            <HugeiconsIcon
+              icon={filter.icon}
+              size={16}
+              strokeWidth={1.7}
+              color={isActive ? 'white' : '#64748b'}
+            />
+
+            {/* Label */}
             <span>{filter.label}</span>
-            <span 
+
+            {/* Count Badge */}
+            <span
               className={`
-                px-1.5 py-0.5 rounded text-xs font-semibold
-                ${isActive ? 'bg-blue-500 text-white' : filter.countColor}
+                px-2 py-0.5 rounded-full text-xs font-semibold
+                ${
+                  isActive
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200 text-slate-600'
+                }
               `}
             >
               {filter.count}

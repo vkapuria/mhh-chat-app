@@ -4,19 +4,20 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  HomeIcon, 
-  ShoppingBagIcon, 
-  ChatBubbleLeftRightIcon, 
-  UserCircleIcon,
-  CurrencyDollarIcon,
-  QuestionMarkCircleIcon,
-  ArrowRightOnRectangleIcon,
-  ChevronRightIcon,
-} from '@heroicons/react/24/outline';
+import { motion } from 'framer-motion';
+import { ChevronRightIcon } from '@heroicons/react/24/outline';
+import { HugeiconsIcon } from '@hugeicons/react';
+import {
+  Home03Icon,
+  ShoppingBag03Icon,
+  Message02Icon,
+  UserIcon,
+  DollarSquareIcon,
+  InformationCircleIcon,
+  Logout03Icon,
+  CustomerService02Icon,
+} from '@hugeicons/core-free-icons';
 import { User } from '@/types/user';
-import { LifeBuoy } from 'lucide-react';
 import { UserProfileModal } from '../user/UserProfileModal';
 import { useUnreadTicketsStore } from '@/store/unread-tickets-store';
 import { useUnreadMessagesStore } from '@/store/unread-messages-store';
@@ -58,19 +59,24 @@ interface PortalSidebarProps {
   onNavigate?: () => void;
 }
 
-interface PortalSidebarProps {
-  user: User;
-  onNavigate?: () => void;
-}
+type NavSection = 'main' | 'account';
 
 export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
   const pathname = usePathname();
   const isCustomer = user.user_type === 'customer';
   const isExpert = user.user_type === 'expert';
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+
+  const [hoveredDescription, setHoveredDescription] = useState<string | null>(null);
   const [showProfileModal, setShowProfileModal] = useState(false);
 
-  // Get unread ticket count - subscribe to entire store to force re-render
+  // Dashboard label for header
+  const dashboardLabel = isCustomer
+    ? 'Customer Dashboard'
+    : isExpert
+    ? 'Expert Dashboard'
+    : 'Dashboard';
+
+  // Get unread ticket count
   const unreadTickets = useUnreadTicketsStore((state) => state.unreadTickets);
   const totalUnreadTickets = Object.values(unreadTickets).reduce(
     (total, ticket) => total + ticket.unreadCount,
@@ -84,64 +90,73 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
     0
   );
 
-
-  // Navigation items based on user type
+  // Navigation items with sections
   const navItems = [
     {
       name: 'Home',
       href: '/dashboard',
-      icon: HomeIcon,
+      icon: Home03Icon,
       show: true,
-      description: 'Dashboard overview',
-      dataTour: 'dashboard',  // ← ADD THIS
+      description: 'Dashboard overview at a glance',
+      dataTour: 'dashboard',
+      section: 'main' as NavSection,
     },
     {
       name: isCustomer ? 'My Orders' : 'My Tasks',
       href: '/orders',
-      icon: ShoppingBagIcon,
+      icon: ShoppingBag03Icon,
       show: true,
-      description: isCustomer ? 'Track your orders' : 'View assigned tasks',
-      dataTour: isCustomer ? 'orders' : 'my-tasks',  // ← ADD THIS
+      description: isCustomer ? 'Track your orders and deadlines' : 'View and manage assigned tasks',
+      dataTour: isCustomer ? 'orders' : 'my-tasks',
+      section: 'main' as NavSection,
     },
     {
       name: 'Messages',
       href: '/messages',
-      icon: ChatBubbleLeftRightIcon,
+      icon: Message02Icon,
       show: true,
-      description: 'Chat conversations',
-      dataTour: 'messages',  // ← ADD THIS
+      description: 'Chat with your expert or support',
+      dataTour: 'messages',
+      section: 'main' as NavSection,
     },
     {
       name: 'My Earnings',
       href: '/earnings',
-      icon: CurrencyDollarIcon,
+      icon: DollarSquareIcon,
       show: isExpert,
-      description: 'Payment history',
-      dataTour: 'earnings',  // ← ADD THIS
+      description: 'Payouts, balances, and history',
+      dataTour: 'earnings',
+      section: 'account' as NavSection,
     },
     {
-      name: 'Support',
+      name: 'Help Center',
       href: '/support',
-      icon: LifeBuoy,
+      icon: CustomerService02Icon,
       show: true,
-      description: 'Get help from us',
-      dataTour: 'support',  // ← ADD THIS
+      description: 'Get help from our support team',
+      dataTour: 'support',
+      section: 'account' as NavSection,
     },
     {
       name: 'FAQ',
       href: '/faq',
-      icon: QuestionMarkCircleIcon,
+      icon: InformationCircleIcon,
       show: true,
-      description: 'Common questions',
+      description: 'Common questions and quick answers',
+      section: 'account' as NavSection,
     },
     {
       name: 'Profile',
       href: '/profile',
-      icon: UserCircleIcon,
+      icon: UserIcon,
       show: true,
-      description: 'Account settings',
+      description: 'Update your details and settings',
+      section: 'account' as NavSection,
     },
-  ].filter(item => item.show);
+  ].filter((item) => item.show);
+
+  const mainNavItems = navItems.filter((item) => item.section === 'main');
+  const accountNavItems = navItems.filter((item) => item.section === 'account');
 
   const isActive = (href: string) => {
     if (href === '/dashboard') {
@@ -156,63 +171,64 @@ export function PortalSidebar({ user, onNavigate }: PortalSidebarProps) {
     }
   };
 
-  // Get avatar URL
+  // Avatar + name
   const DEFAULT_AVATAR = isExpert ? EXPERT_AVATARS[0] : CUSTOMER_AVATARS[0];
-const avatarUrl = (user as any).user_metadata?.avatar_url || DEFAULT_AVATAR;
-const displayName = (user as any).user_metadata?.display_name || user.name;
+  const avatarUrl = (user as any).user_metadata?.avatar_url || DEFAULT_AVATAR;
+  const displayName = (user as any).user_metadata?.display_name || user.name;
 
   return (
     <>
       <div className="w-56 bg-white border-r border-slate-200 flex flex-col h-screen">
-        {/* Logo Only Header */}
-        <div className="p-4 border-b border-slate-200 flex justify-center">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3 }}
-          >
+        {/* Compact header: favicon + dashboard label + profile */}
+        <div className="px-3 py-3 border-b border-slate-200">
+          {/* Brand + dashboard label */}
+          <div className="flex items-center gap-2">
             <Image
-              src="/icons/mhh-logo.png"
-              alt="Homework Hub"
-              width={100}
-              height={50}
-              className="object-contain"
+              src="/favicon.svg"
+              alt="MyHomeworkHelp"
+              width={28}
+              height={28}
+              className="shrink-0"
             />
-          </motion.div>
-        </div>
+            <div className="flex flex-col leading-tight">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                MyHomeworkHelp
+              </span>
+              <span className="text-sm font-semibold text-slate-900">
+                {dashboardLabel}
+              </span>
+            </div>
+          </div>
 
-        {/* User Profile - Left Aligned */}
-        <div className="p-3 border-b border-slate-200">
+          {/* Profile row */}
           <motion.button
-            data-tour="edit-profile"  // ← ADD THIS
-            initial={{ opacity: 0, y: -10 }}
+            data-tour="edit-profile"
+            initial={{ opacity: 0, y: -2 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
+            transition={{ duration: 0.2, delay: 0.05 }}
             onClick={() => setShowProfileModal(true)}
-            className="w-full flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors group"
+            className="mt-3 w-full flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors group"
           >
-            {/* Avatar */}
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
                 alt={displayName}
-                width={54}
-                height={54}
-                className="w-12 h-12 rounded-full object-cover border-2 border-slate-700"
+                width={40}
+                height={40}
+                className="w-10 h-10 rounded-full object-cover border border-slate-300"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold border-2 border-slate-200">
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-sm font-semibold border border-slate-200">
                 {displayName.substring(0, 2).toUpperCase()}
               </div>
             )}
-            
-            {/* Name & Helper Text */}
+
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-semibold text-slate-900 truncate">
                 {displayName}
               </p>
               <p className="text-xs text-slate-500 flex items-center gap-1 group-hover:text-blue-600 transition-colors">
-                Edit Profile
+                Edit profile
                 <ChevronRightIcon className="w-3 h-3" />
               </p>
             </div>
@@ -220,96 +236,156 @@ const displayName = (user as any).user_metadata?.display_name || user.name;
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
-          {navItems.map((item, index) => {
-            const Icon = item.icon;
-            const active = isActive(item.href);
-            const isHovered = hoveredItem === item.href;
-
-            return (
-              <motion.div
-                key={item.name}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.04 }}
-                onHoverStart={() => setHoveredItem(item.href)}
-                onHoverEnd={() => setHoveredItem(null)}
-              >
-                <Link
-                  href={item.href}
-                  onClick={onNavigate}
-                  data-tour={item.dataTour}  // ← ADD THIS
-                  className={`
-                    group relative flex flex-col gap-0 px-3 py-2.5 rounded-lg transition-all duration-200 overflow-hidden
-                    ${
-                      active
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'text-slate-600 hover:bg-slate-800 hover:text-white'
-                    }
-                  `}
-                >
-                  {/* Active indicator */}
-                  {active && (
-                    <motion.div
-                      layoutId="activeNav"
-                      className="absolute inset-0 bg-blue-600 rounded-lg"
-                      transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
-                    />
-                  )}
-                  
-                  {/* Main content */}
-                  <div className="relative flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-400 group-hover:text-white'} transition-colors`} />
-                    <span className={`text-sm font-medium ${active ? 'text-white' : ''}`}>
-                      {item.name}
-                    </span>
-                    {/* Unread badge for Support */}
-                    {/* Unread badge for Support */}
-                    {item.href === '/support' && totalUnreadTickets > 0 && (
-                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {totalUnreadTickets > 9 ? '9+' : totalUnreadTickets}
-                      </span>
-                    )}
-                    {/* Unread badge for Messages */}
-                    {item.href === '/messages' && totalUnreadMessages > 0 && (
-                      <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-                        {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Description - expands on hover */}
-                  <AnimatePresence>
-                    {isHovered && !active && (
+        <nav className="flex-1 flex flex-col overflow-y-auto">
+          {/* Main section */}
+          <div className="px-2 pt-3 pb-1">
+            <p className="px-1 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Main
+            </p>
+            <div className="space-y-1">
+              {mainNavItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={onNavigate}
+                    data-tour={item.dataTour}
+                    onMouseEnter={() => setHoveredDescription(item.description)}
+                    onMouseLeave={() => setHoveredDescription(null)}
+                    className={`
+                      group relative flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium
+                      transition-colors
+                      ${
+                        active
+                          ? 'text-white'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }
+                    `}
+                  >
+                    {/* Active animated background */}
+                    {active && (
                       <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: 'easeInOut' }}
-                        className="relative overflow-hidden"
-                      >
-                        <p className="text-xs text-slate-300 pt-1 pl-8">
-                          {item.description}
-                        </p>
-                      </motion.div>
+                        layoutId="activeNav"
+                        className="absolute inset-0 rounded-lg bg-blue-600"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                      />
                     )}
-                  </AnimatePresence>
-                </Link>
-              </motion.div>
-            );
-          })}
-        </nav>
 
-        {/* Footer - Sign Out */}
-        <div className="p-3 border-t border-slate-200">
-          <button
-            onClick={handleSignOut}
-            className="group w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-          >
-            <span>Sign Out</span>
-            <ArrowRightOnRectangleIcon className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
-        </div>
+                    <div className="relative flex items-center gap-3 w-full">
+                      <HugeiconsIcon
+                        icon={item.icon}
+                        size={18}
+                        strokeWidth={1.5}
+                        className={
+                          active
+                            ? 'text-white'
+                            : 'text-slate-400 group-hover:text-slate-700'
+                        }
+                      />
+                      <span className={`truncate ${active ? 'text-white' : ''}`}>
+                        {item.name}
+                      </span>
+
+                      {/* Unread badge for Messages */}
+                      {item.href === '/messages' && totalUnreadMessages > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                          {totalUnreadMessages > 9 ? '9+' : totalUnreadMessages}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Account & Help section */}
+          <div className="px-2 pt-3 pb-2">
+            <p className="px-1 mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Account &amp; Help
+            </p>
+            <div className="space-y-1">
+              {accountNavItems.map((item) => {
+                const active = isActive(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    onClick={onNavigate}
+                    data-tour={item.dataTour}
+                    onMouseEnter={() => setHoveredDescription(item.description)}
+                    onMouseLeave={() => setHoveredDescription(null)}
+                    className={`
+                      group relative flex items-center gap-3 px-2.5 py-2 rounded-lg text-sm font-medium
+                      transition-colors
+                      ${
+                        active
+                          ? 'text-white'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }
+                    `}
+                  >
+                    {/* Active animated background */}
+                    {active && (
+                      <motion.div
+                        layoutId="activeNav"
+                        className="absolute inset-0 rounded-lg bg-blue-600"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                      />
+                    )}
+
+                    <div className="relative flex items-center gap-3 w-full">
+                      <HugeiconsIcon
+                        icon={item.icon}
+                        size={18}
+                        strokeWidth={1.5}
+                        className={
+                          active
+                            ? 'text-white'
+                            : 'text-slate-400 group-hover:text-slate-700'
+                        }
+                      />
+                      <span className={`truncate ${active ? 'text-white' : ''}`}>
+                        {item.name}
+                      </span>
+
+                      {/* Unread badge for Support */}
+                      {item.href === '/support' && totalUnreadTickets > 0 && (
+                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                          {totalUnreadTickets > 9 ? '9+' : totalUnreadTickets}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Helper description strip */}
+          <div className="mt-auto border-t border-slate-200 px-3 py-2 text-[11px] leading-snug text-slate-500 bg-slate-50">
+            {hoveredDescription
+              ? hoveredDescription
+              : 'Tip: Use Messages to chat with your expert and track order updates.'}
+          </div>
+
+          {/* Sign Out */}
+          <div className="p-3 border-t border-slate-200">
+            <button
+              onClick={handleSignOut}
+              className="group w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-150"
+            >
+              <span>Sign out</span>
+              <HugeiconsIcon
+                icon={Logout03Icon}
+                size={18}
+                strokeWidth={1.5}
+                className="text-slate-400 group-hover:text-red-600 group-hover:translate-x-0.5 transition-transform"
+              />
+            </button>
+          </div>
+        </nav>
       </div>
 
       {/* Profile Modal */}
