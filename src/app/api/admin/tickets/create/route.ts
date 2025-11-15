@@ -174,65 +174,354 @@ export async function POST(request: NextRequest) {
       const ticketUrl = `https://chat.myhomeworkhelp.com/support/${ticket.id}`;
       
       const emailHtml = `
-<!DOCTYPE html>
-<html>
+      <!DOCTYPE html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <title>New Support Ticket Created for You</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap"
+    rel="stylesheet"
+  />
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #1e293b; margin: 0; padding: 0; background-color: #f8fafc; }
-    .container { max-width: 600px; margin: 0 auto; background: white; }
-    .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); padding: 32px 24px; text-align: center; }
-    .header h1 { color: white; margin: 0; font-size: 24px; font-weight: 600; }
-    .content { padding: 32px 24px; }
-    .badge { display: inline-block; background: #fef3c7; color: #92400e; padding: 8px 16px; border-radius: 6px; font-size: 14px; font-weight: 600; margin-bottom: 24px; }
-    .info-box { background: #f1f5f9; border-left: 4px solid #4f46e5; padding: 16px; margin: 24px 0; border-radius: 4px; }
-    .info-box p { margin: 8px 0; font-size: 14px; }
-    .info-box strong { color: #1e293b; }
-    .message-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 20px; margin: 24px 0; border-radius: 8px; }
-    .message-box h3 { margin: 0 0 12px 0; font-size: 16px; color: #1e293b; }
-    .message-box p { margin: 0; color: #475569; white-space: pre-wrap; }
-    .cta { text-align: center; margin: 32px 0; }
-    .button { display: inline-block; background: #4f46e5; color: white !important; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-weight: 600; }
-    .footer { padding: 24px; text-align: center; color: #64748b; font-size: 14px; border-top: 1px solid #e2e8f0; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #f7fafc;
+      color: #111827;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+        'Helvetica Neue', Arial, 'Apple Color Emoji', 'Segoe UI Emoji';
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: #4f46e5;
+      text-decoration: none;
+    }
+
+    img {
+      border: 0;
+      outline: none;
+      text-decoration: none;
+      max-width: 100%;
+    }
+
+    table {
+      border-collapse: collapse;
+    }
+
+    .wrap {
+      width: 100%;
+      padding: 28px 0;
+    }
+
+    .email-wrapper {
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05), 0 10px 20px rgba(0, 0, 0, 0.05);
+      border-top: 4px solid #4f46e5;
+      border-left: 1px solid #e5e7eb;
+      border-right: 1px solid #e5e7eb;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .inner {
+      padding: 40px 36px 32px 36px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 22px;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 24px;
+      gap: 10px;
+    }
+
+    .logo {
+      display: block;
+      height: auto;
+    }
+
+    .date {
+      font-size: 13px;
+      color: #6b7280;
+      text-align: right;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fef3c7;
+      color: #92400e;
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 12px;
+      border: 1px solid #fde68a;
+      margin-bottom: 18px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .badge span {
+      font-size: 14px;
+    }
+
+    .h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin: 0 0 14px 0;
+      color: #111827;
+    }
+
+    .content {
+      font-size: 15px;
+      line-height: 1.7;
+      color: #111827;
+    }
+
+    .content p {
+      margin: 0 0 16px 0;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #6b7280;
+      margin: 22px 0 10px 0;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .info-box {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 10px 0 18px 0;
+      font-size: 14px;
+    }
+
+    .info-row {
+      display: flex;
+      padding: 6px 0;
+      border-bottom: 1px solid #e5e7eb;
+      gap: 10px;
+    }
+
+    .info-row:last-child {
+      border-bottom: none;
+    }
+
+    .info-label {
+      font-weight: 500;
+      color: #6b7280;
+      min-width: 110px;
+    }
+
+    .info-value {
+      color: #111827;
+      font-weight: 600;
+    }
+
+    .message-box {
+      background: #f9fafb;
+      border-radius: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 14px 16px;
+      margin: 10px 0 22px 0;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .message-subject {
+      font-weight: 600;
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: #111827;
+    }
+
+    .message-body {
+      margin: 0;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    .info-note {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 13px;
+      color: #1e40af;
+      margin-bottom: 20px;
+    }
+
+    .info-note strong {
+      color: #1d4ed8;
+    }
+
+    .cta {
+      text-align: center;
+      margin: 26px 0 18px 0;
+    }
+
+    .btn {
+      display: inline-block;
+      background: #4f46e5;
+      color: #ffffff !important;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 15px;
+      box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2);
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #4338ca;
+      box-shadow: 0 6px 12px rgba(79, 70, 229, 0.3);
+    }
+
+    .footer {
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+      padding: 0 12px 20px 12px;
+    }
+
+    .footer p {
+      margin: 0 0 6px 0;
+    }
+
+    @media (max-width: 620px) {
+      .inner {
+        padding: 28px 22px 24px 22px;
+      }
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+      .date {
+        text-align: left;
+      }
+      .info-row {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .info-label {
+        min-width: 0;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <h1>🎫 New Support Ticket from Our Team</h1>
-    </div>
-    
-    <div class="content">
-      <div class="badge">PROACTIVE SUPPORT</div>
-      
-      <p>Hi ${recipient_name},</p>
-      
-      <p>Our support team has created a ticket regarding your order. We're reaching out proactively to assist you.</p>
-      
-      <div class="info-box">
-        <p><strong>Ticket #:</strong> ${formatTicketNumber(ticket.id)}</p>
-        <p><strong>Order:</strong> ${order_id}</p>
-        <p><strong>Category:</strong> ${issue_type}</p>
-      </div>
-      
-      <div class="message-box">
-        <h3>📋 Subject: ${subject}</h3>
-        <p>${message}</p>
-      </div>
-      
-      <p>Please review the ticket and reply with any information or questions you may have. We're here to help!</p>
-      
-      <div class="cta">
-        <a href="${ticketUrl}" class="button">View & Reply to Ticket</a>
-      </div>
-    </div>
-    
-    <div class="footer">
-      <p>You can reply to this email directly, or visit the ticket page above.</p>
-      <p>MyHomeworkHelp Support Team</p>
-    </div>
+  <!-- Preheader -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+    Our support team has opened a ticket for your order. Review the details and reply if needed.
   </div>
+
+  <table role="presentation" class="wrap" width="100%" cellspacing="0" cellpadding="0">
+    <tr>
+      <td align="center">
+        <table role="presentation" class="email-wrapper" cellspacing="0" cellpadding="0">
+          <tr>
+            <td class="inner">
+              <!-- Header -->
+              <div class="header">
+                <img
+                  class="logo"
+                  src="https://i.ibb.co/5xj5Pvc8/final-files-mhh-copy-3.png"
+                  alt="MyHomeworkHelp"
+                  width="150"
+                  height="auto"
+                />
+                <div class="date">
+                  ${new Date().toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </div>
+              </div>
+
+              <div class="content">
+                <div class="badge">
+                  <span>•</span> PROACTIVE SUPPORT
+                </div>
+
+                <h1 class="h1">We’ve opened a support ticket for you</h1>
+
+                <p>Hi <strong>${recipient_name}</strong>,</p>
+
+                <p>
+                  Our support team has created a ticket related to your order. We’re reaching out proactively
+                  so we can assist you and keep everything on track.
+                </p>
+
+                <div class="section-title">Ticket summary</div>
+                <div class="info-box">
+                  <div class="info-row">
+                    <span class="info-label">Ticket #</span>
+                    <span class="info-value">${formatTicketNumber(ticket.id)}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Order</span>
+                    <span class="info-value">${order_id}</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">Category</span>
+                    <span class="info-value">${issue_type}</span>
+                  </div>
+                </div>
+
+                <div class="section-title">Message from our team</div>
+                <div class="message-box">
+                  <div class="message-subject">📋 Subject: ${subject}</div>
+                  <p class="message-body">${message}</p>
+                </div>
+
+                <div class="info-note">
+                  <strong>How to respond:</strong>
+                  You can reply directly to this email, and your response will be added to the ticket conversation.
+                  You can also view the ticket in your dashboard using the button below.
+                </div>
+
+                <div class="cta">
+                  <a href="${ticketUrl}" class="btn">View &amp; Reply to Ticket</a>
+                </div>
+
+                <p style="font-size: 13px; color: #6b7280; margin-top: 16px;">
+                  If something doesn’t look right or you have more details to share, just reply —
+                  our team will take it from there.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <tr>
+            <td class="footer">
+              <p>MyHomeworkHelp Support Team</p>
+              <p>
+                Need additional help? Email us at
+                <a href="mailto:orders@myhomeworkhelp.com" style="color:#4f46e5;">orders@myhomeworkhelp.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
       `;
